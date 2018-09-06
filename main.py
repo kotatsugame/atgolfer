@@ -78,14 +78,11 @@ def main():
     parser.add_argument('--access-token-secret')
     args = parser.parse_args()
 
-    # log in twitter
+    # logging in is postponed
     if args.post:
-        api = twitter.Api(
-            consumer_key=args.consumer_key,
-            consumer_secret=args.consumer_secret,
-            access_token_key=args.access_token_key,
-            access_token_secret=args.access_token_secret,
-            sleep_on_rate_limit=True)
+        if not args.consumer_key or not args.consumer_secret or not args.access_token_key or not args.access_token_secret:
+            parser.error('all of --{consumer,access-token}-{key,secret} are required if --post is used')
+        api = None
 
     # load cache
     last_merged_problems = {}
@@ -140,6 +137,13 @@ def main():
 
         # post
         if args.post:
+            if api is None:
+                api = twitter.Api(
+                    consumer_key=args.consumer_key,
+                    consumer_secret=args.consumer_secret,
+                    access_token_key=args.access_token_key,
+                    access_token_secret=args.access_token_secret,
+                    sleep_on_rate_limit=True)
             api.PostUpdate(text)
 
         # wait
