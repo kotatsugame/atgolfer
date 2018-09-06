@@ -72,10 +72,10 @@ def main():
     parser.add_argument('--load')
     parser.add_argument('--no-store', action='store_const', const=None, dest='store')
     parser.add_argument('--no-load',  action='store_const', const=None, dest='load')
-    parser.add_argument('--consumer-key', default='')
-    parser.add_argument('--consumer-secret', default='')
-    parser.add_argument('--access-token-key', default='')
-    parser.add_argument('--access-token-secret', default='')
+    parser.add_argument('--consumer-key')
+    parser.add_argument('--consumer-secret')
+    parser.add_argument('--access-token-key')
+    parser.add_argument('--access-token-secret')
     args = parser.parse_args()
 
     # log in twitter
@@ -104,7 +104,7 @@ def main():
         if not os.path.exists(dirname):
             os.mkdirs(dirname)
         with open(args.store, 'w') as fh:
-            json.dumps(problems, fh)
+            json.dump(merged_problems, fh)
 
     # enumerate golfed submissions
     last_problem_from_id = { row['id']: row for row in last_merged_problems }
@@ -128,7 +128,7 @@ def main():
             old_url = 'https://beta.atcoder.jp/contests/{shortest_contest_id}/submissions/{shortest_submission_id}'.format(**last_problem)
             old_submission = get_submission(old_url)
             old_user = last_problem['shortest_user_id']
-            old_byte = old_submission['info']['code_size']
+            old_size = old_submission['info']['code_size']
             if new_user == old_user:
                 text = f'{new_user} さんが自身のショートコードを更新しました！ ({old_size} → {new_size})'
             else:
