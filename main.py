@@ -99,7 +99,7 @@ def main():
     if args.store is not None:
         dirname = os.path.dirname(args.store)
         if not os.path.exists(dirname):
-            os.mkdirs(dirname)
+            os.makedirs(dirname)
         with open(args.store, 'w') as fh:
             json.dump(merged_problems, fh)
 
