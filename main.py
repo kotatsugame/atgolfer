@@ -35,17 +35,17 @@ def get_submission(url):
     data = {}
     data['url'] = url
 
-    id_, = soup.findAll('span', class_='h2')
+    id_, = soup.find_all('span', class_='h2')
     assert id_.text.startswith('Submission #')
     data['id'] = id_.text.partition('#')[2]
 
     source_code = soup.find(id='submission-code')
     data['souce_code'] = source_code.text
 
-    submission_info, test_cases_summary, test_cases_data = soup.findAll('table')
+    submission_info, test_cases_summary, test_cases_data = soup.find_all('table')
 
     data['info'] = {}
-    for tr in submission_info.findAll('tr'):
+    for tr in submission_info.find_all('tr'):
         th = tr.find('th')
         td = tr.find('td')
         key = th.text.replace(' ', '_').lower()
@@ -53,8 +53,8 @@ def get_submission(url):
         data['info'][key] = value
 
     data['test_cases'] = []
-    for tr in test_cases_data.find('tbody').findAll('tr'):
-        td = tr.findAll('td')
+    for tr in test_cases_data.find('tbody').find_all('tr'):
+        td = tr.find_all('td')
         data['test_cases'] += [ {
             'case_name': td[0].text,
             'status':    td[1].text,
