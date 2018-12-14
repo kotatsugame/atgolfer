@@ -86,10 +86,10 @@ def main():
         tasks = soup.find('select', id='select-task').find_all('option')[1:]
         for task in tasks:
             task_id = task['value']
-            r = requests.get(f'{url}?f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length')
-            r.raise_for_status()
-            s = bs4.BeautifulSoup(r.content, 'lxml')
-            tbody = s.find('tbody')
+            resp = requests.get(f'{url}?f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length')
+            resp.raise_for_status()
+            soup = bs4.BeautifulSoup(resp.content, 'lxml')
+            tbody = soup.find('tbody')
             if not tbody: continue
             tds = tbody.find('tr').find_all('td')
             problem_title = tds[1].find('a').text
