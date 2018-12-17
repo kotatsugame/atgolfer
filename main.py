@@ -8,6 +8,7 @@ import requests
 import sys
 import time
 import twitter  # $ sudo pip3 install python-twitter
+from collections import namedtuple
 
 
 def get_contests():
@@ -16,9 +17,11 @@ def get_contests():
     resp = requests.get(url)
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
+    time.sleep(1)
     
     finalpage = int(soup.find('ul', class_='pagination pagination-sm mt-0 mb-1').find_all('li')[-1].text)
     contests = []
+    Contest = namedtuple('Contest', [ 'title', 'path' ])
     for i in range(1, finalpage+1):
         print('[*] GET', f'{url}&page={i}', file=sys.stderr)
         resp = requests.get(f'{url}&page={i}')
@@ -27,13 +30,13 @@ def get_contests():
         
         for tr in tbody.find_all('tr'):
             a = tr.find_all('a')[1]
-            contests.append([ a.text, a['href'] ])
-    
+            contests.append(Contest(title=a.text, path=a['href']))
+        time.sleep(1)
     return contests
- 
 
-def can_read_submissions(contest_id):
-    resp = requests.get('https://beta.atcoder.jp'+contest_id)
+
+def can_read_submissions(contest_beta_path):
+    resp = requests.get(f'https://beta.atcoder.jp{contest_beta_path}')
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
     tabs = soup.find('ul', class_='nav nav-tabs').find_all('li')
@@ -42,8 +45,9 @@ def can_read_submissions(contest_id):
         if not ul: continue
         li = ul.find('li')
         if not li: continue
-        if li.find('a', href=f'{contest_id}/submissions'): return 1
-    return 0
+        if li.find('a', href=f'{contest_beta_path}/submissions'):
+            return True
+    return False
 
 
 def main():
@@ -67,26 +71,40 @@ def main():
 
     # load cache
     shortest_codes = {}
+    latest_submission_ids = {}
     if args.load is not None and os.path.exists(args.load):
         with open(args.load) as fh:
-            shortest_codes = json.load(fh)
+            shortest_codes, latest_submission_ids = json.load(fh)
 
     # get data
     contests = get_contests()
     contest_count = len(contests)
     contest_number = 0
-    for contest_title, contest_id in contests:
+    for contest in contests:
+        contest_title = contest.title
+        contest_beta_path = contest.path
         contest_number += 1
         print('[*]', f'{contest_number}/{contest_count}: {contest_title}', file=sys.stderr)
-        if not can_read_submissions(contest_id): continue
-        url = f'https://beta.atcoder.jp{contest_id}/submissions'
+        if not can_read_submissions(contest_beta_path): continue
+        
+        url = f'https://beta.atcoder.jp{contest_beta_path}/submissions'
         resp = requests.get(url)
         resp.raise_for_status()
         soup = bs4.BeautifulSoup(resp.content, 'lxml')
+        
+        tbody = soup.find('tbody')
+        if not tbody: continue
+        tr = tbody.find('tr')
+        latest_submission_id = tr.find_all('td')[4]['data-id']
+        if contest_beta_path in latest_submission_ids:
+            if latest_submission_id == latest_submission_ids[contest_beta_path]:
+                continue
+        latest_submission_ids[contest_beta_path] = latest_submission_id
+        
         tasks = soup.find('select', id='select-task').find_all('option')[1:]
         for task in tasks:
             task_id = task['value']
-            resp = requests.get(f'{url}?f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length')
+            resp = requests.get(f'{url}?f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length')  # NOTE: this query shows submissions with the same length in the ascending order of time
             resp.raise_for_status()
             soup = bs4.BeautifulSoup(resp.content, 'lxml')
             tbody = soup.find('tbody')
@@ -97,7 +115,9 @@ def main():
             new_submission_id = tds[4]['data-id']
             new_size = int(tds[5].text.split(' ')[0])
             if task_id in shortest_codes:
-                old_size, old_submission_id, old_user = shortest_codes[task_id]
+                old_size = shortest_codes[task_id]['size']
+                old_submission_id = shortest_codes[task_id]['submission_id']
+                old_user = shortest_codes[task_id]['user']
                 if new_size < old_size or (new_size == old_size and new_submission_id < old_submission_id):
                     if new_user == old_user:
                         text = f'{new_user} さんが自身のショートコードを更新しました！ ({old_size} Byte → {new_size} Byte)'
@@ -106,7 +126,10 @@ def main():
                 else: continue
             else:
                 text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
-            shortest_codes[task_id] = [ new_size, new_submission_id, new_user ]
+                shortest_codes[task_id] = {}
+            shortest_codes[task_id]['size'] = new_size
+            shortest_codes[task_id]['submission_id'] = new_submission_id
+            shortest_codes[task_id]['user'] = new_user
             text = '\n'.join([ f'{contest_title}: {problem_title}', text, url+'/'+new_submission_id ])
             print('[*]', text, file=sys.stderr)
             
@@ -130,7 +153,7 @@ def main():
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         with open(args.store, 'w') as fh:
-            json.dump(shortest_codes, fh)
+            json.dump([ shortest_codes, latest_submission_ids ], fh)
 
 
 if __name__ == '__main__':
