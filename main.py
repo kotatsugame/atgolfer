@@ -40,8 +40,6 @@ def get_contests():
 
 # TODO: this function should be a class
 def crawl_contest(contest, shortest_codes, latest_submission_ids):
-    contest_title = contest.title
-    contest_path = '/contests/' + contest.id
 
     # read /contests/{contest_id}/submissions to list tasks and check new submissions 
     try:
@@ -58,12 +56,12 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
     submission_trs = tbody.find_all('tr')
     latest_submission_id = submission_trs[0].find_all('td')[4]['data-id']
     newer_submission_id = submission_trs[-1].find_all('td')[4]['data-id']
-    if contest_path in latest_submission_ids:
-        if latest_submission_id == latest_submission_ids[contest_path]:
+    if contest.id in latest_submission_ids:
+        if latest_submission_id == latest_submission_ids[contest.id]:
             return []  # no new submissions
 
     # read submissions of tasks
-    if ( not(contest_path in latest_submission_ids) ) or ( int(newer_submission_id) > int(latest_submission_ids[contest_path]) ):
+    if ( not(contest.id in latest_submission_ids) ) or ( int(newer_submission_id) > int(latest_submission_ids[contest.id]) ):
         submission_trs = []
         tasks = soup.find('select', id='select-task').find_all('option')[1:]
         for task in tasks:
@@ -72,7 +70,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
             tbody = get_html(f'{url}?{query}').find('tbody')
             if not tbody: continue
             submission_trs.append(tbody.find('tr'))
-    latest_submission_ids[contest_path] = latest_submission_id
+    latest_submission_ids[contest.id] = latest_submission_id
 
     # check the shortest submissions
     texts = []
@@ -100,7 +98,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
         shortest_codes[task_id]['size'] = new_size
         shortest_codes[task_id]['submission_id'] = new_submission_id
         shortest_codes[task_id]['user'] = new_user
-        text = '\n'.join([ f'{contest_title}: {problem_title}', text, url+'/'+new_submission_id ])
+        text = '\n'.join([ f'{contest.title}: {problem_title}', text, url+'/'+new_submission_id ])
         texts += [ text ]
     return texts
 
