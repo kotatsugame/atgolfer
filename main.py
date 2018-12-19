@@ -11,6 +11,9 @@ import twitter  # $ sudo pip3 install python-twitter
 from collections import namedtuple
 
 
+Contest = namedtuple('Contest', [ 'title', 'id' ])
+
+
 def get_html(url):
     print('[*] GET', url, file=sys.stderr)
     resp = requests.get(url)
@@ -24,7 +27,6 @@ def get_contests():
     url = 'https://atcoder.jp/contests/archive?lang=ja'
     finalpage = int(get_html(url).find('ul', class_='pagination').find_all('li')[-1].text)
     contests = []
-    Contest = namedtuple('Contest', [ 'title', 'id' ])
     for i in range(1, finalpage+1):
         tbody = get_html(f'{url}&page={i}').find('tbody')
         for tr in tbody.find_all('tr'):
@@ -134,6 +136,7 @@ def main():
     contests = get_contests()
     if args.only_abc00x:
         contests = [ contest for contest in contests if contest.id.startswith('abc00') ]
+    contests = [ Contest('practice contest', 'practice') ] + contests  # NOTE: add poison for stability
     contest_count = len(contests)
 
     for i, contest in enumerate(contests):
