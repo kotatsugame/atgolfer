@@ -84,7 +84,7 @@ def main():
         if not(contest_path in latest_submission_ids):
             if not can_read_submissions(contest_path):
                 continue
-        
+
         url = f'https://atcoder.jp{contest_path}/submissions'
         soup = get_html(url)
         tbody = soup.find('tbody')
@@ -104,7 +104,7 @@ def main():
                 if not tbody: continue
                 submission_trs.append(tbody.find('tr'))
         latest_submission_ids[contest_path] = latest_submission_id
-        
+
         for tr in submission_trs:
             tds = tr.find_all('td')
             if tds[6].find('span').text != 'AC': continue
@@ -131,7 +131,7 @@ def main():
             shortest_codes[task_id]['user'] = new_user
             text = '\n'.join([ f'{contest_title}: {problem_title}', text, url+'/'+new_submission_id ])
             print('[*]', text, file=sys.stderr)
-            
+
             # post
             if args.post:
                 if api is None:
@@ -142,10 +142,10 @@ def main():
                         access_token_secret=args.access_token_secret,
                         sleep_on_rate_limit=True)
                 api.PostUpdate(text)
-            
+
                 # wait
                 time.sleep(3)
-    
+
     # write cache
     if args.store is not None:
         dirname = os.path.dirname(args.store)
@@ -157,4 +157,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
