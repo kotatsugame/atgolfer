@@ -24,23 +24,26 @@ def get_contests():
     url = 'https://atcoder.jp/contests/archive?lang=ja'
     finalpage = int(get_html(url).find('ul', class_='pagination pagination-sm mt-0 mb-1').find_all('li')[-1].text)
     contests = []
-    Contest = namedtuple('Contest', [ 'title', 'path' ])
+    Contest = namedtuple('Contest', [ 'title', 'id' ])
     for i in range(1, finalpage+1):
         tbody = get_html(f'{url}&page={i}').find('tbody')
         for tr in tbody.find_all('tr'):
             a = tr.find_all('a')[1]
-            contests.append(Contest(title=a.text, path=a['href']))
+            contest_path = a['href']
+            assert contest_path.startswith('/contests/')
+            contest_id = contest_path[len('/contests/') :]
+            contests.append(Contest(title=a.text, id=contest_id))
     return contests
 
 
-def can_read_submissions(contest_path):
-    tabs = get_html(f'https://atcoder.jp{contest_path}').find('ul', class_='nav nav-tabs').find_all('li')
+def can_read_submissions(contest_id):
+    tabs = get_html(f'https://atcoder.jp/contests/{contest_id}').find('ul', class_='nav nav-tabs').find_all('li')
     for tab in tabs:
         ul = tab.find('ul')
         if not ul: continue
         li = ul.find('li')
         if not li: continue
-        if li.find('a', href=f'{contest_path}/submissions'):
+        if li.find('a', href=f'/contests/{contest_id}/submissions'):
             return True
     return False
 
@@ -48,13 +51,13 @@ def can_read_submissions(contest_path):
 # TODO: this function should be a class
 def crawl_contest(contest, shortest_codes, latest_submission_ids):
     contest_title = contest.title
-    contest_path = contest.path
+    contest_path = '/contests/' + contest.id
     if not(contest_path in latest_submission_ids):
-        if not can_read_submissions(contest_path):
+        if not can_read_submissions(contest.id):
             return []
 
     # read /contests/{contest_id}/submissions to list tasks and check new submissions 
-    url = f'https://atcoder.jp{contest_path}/submissions'
+    url = f'https://atcoder.jp/contests/{contest.id}/submissions'
     soup = get_html(url)
     tbody = soup.find('tbody')
     if not tbody:
@@ -139,7 +142,7 @@ def main():
     # get data
     contests = get_contests()
     if args.only_abc00x:
-        contests = [ contest for contest in contests if '/abc00' in contest.path ]
+        contests = [ contest for contest in contests if contest.id.startswith('abc00') ]
     contest_count = len(contests)
 
     for i, contest in enumerate(contests):
