@@ -8,61 +8,42 @@ import requests
 import sys
 import time
 import twitter  # $ sudo pip3 install python-twitter
+from collections import namedtuple
 
 
-def get_contests():
-    url = 'https://kenkoooo.com/atcoder/atcoder-api/info/contests'
-    print('[*] GET', url, file=sys.stderr)
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return json.loads(resp.content)
-
-
-def get_merged_problems():
-    url = 'https://kenkoooo.com/atcoder/atcoder-api/info/merged-problems'
-    print('[*] GET', url, file=sys.stderr)
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return json.loads(resp.content)
-
-
-def get_submission(url):
-    print('[*] GET', url, file=sys.stderr)
+def get_html(url):
     resp = requests.get(url)
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
+    time.sleep(0.5)
+    return soup
 
-    data = {}
-    data['url'] = url
 
-    id_, = soup.find_all('span', class_='h2')
-    assert id_.text.startswith('Submission #')
-    data['id'] = id_.text.partition('#')[2]
+def get_contests():
+    url = 'https://atcoder.jp/contests/archive?lang=ja'
+    print('[*] GET', url, file=sys.stderr)
+    finalpage = int(get_html(url).find('ul', class_='pagination pagination-sm mt-0 mb-1').find_all('li')[-1].text)
+    contests = []
+    Contest = namedtuple('Contest', [ 'title', 'path' ])
+    for i in range(1, finalpage+1):
+        print('[*] GET', f'{url}&page={i}', file=sys.stderr)
+        tbody = get_html(f'{url}&page={i}').find('tbody')
+        for tr in tbody.find_all('tr'):
+            a = tr.find_all('a')[1]
+            contests.append(Contest(title=a.text, path=a['href']))
+    return contests
 
-    source_code = soup.find(id='submission-code')
-    data['souce_code'] = source_code.text
 
-    submission_info, test_cases_summary, test_cases_data = soup.find_all('table')
-
-    data['info'] = {}
-    for tr in submission_info.find_all('tr'):
-        th = tr.find('th')
-        td = tr.find('td')
-        key = th.text.replace(' ', '_').lower()
-        value = td.text.strip()
-        data['info'][key] = value
-
-    data['test_cases'] = []
-    for tr in test_cases_data.find('tbody').find_all('tr'):
-        td = tr.find_all('td')
-        data['test_cases'] += [ {
-            'case_name': td[0].text,
-            'status':    td[1].text,
-            'exec_time': td[2].text,
-            'memory':    td[3].text,
-        } ]
-
-    return data
+def can_read_submissions(contest_path):
+    tabs = get_html(f'https://atcoder.jp{contest_path}').find('ul', class_='nav nav-tabs').find_all('li')
+    for tab in tabs:
+        ul = tab.find('ul')
+        if not ul: continue
+        li = ul.find('li')
+        if not li: continue
+        if li.find('a', href=f'{contest_path}/submissions'):
+            return True
+    return False
 
 
 def main():
@@ -85,70 +66,95 @@ def main():
         api = None
 
     # load cache
-    last_merged_problems = {}
+    shortest_codes = {}
+    latest_submission_ids = {}
     if args.load is not None and os.path.exists(args.load):
         with open(args.load) as fh:
-            last_merged_problems = json.load(fh)
+            shortest_codes, latest_submission_ids = json.load(fh)
 
     # get data
     contests = get_contests()
-    merged_problems = get_merged_problems()
-    content_from_id = { row['id']: row for row in contests }
-
+    contest_count = len(contests)
+    contest_number = 0
+    for contest in contests:
+        contest_title = contest.title
+        contest_path = contest.path
+        contest_number += 1
+        print('[*]', f'{contest_number}/{contest_count}: {contest_title}', file=sys.stderr)
+        if not(contest_path in latest_submission_ids):
+            if not can_read_submissions(contest_path):
+                continue
+        
+        url = f'https://atcoder.jp{contest_path}/submissions'
+        soup = get_html(url)
+        tbody = soup.find('tbody')
+        if not tbody: continue
+        submission_trs = tbody.find_all('tr')
+        latest_submission_id = submission_trs[0].find_all('td')[4]['data-id']
+        newer_submission_id = submission_trs[-1].find_all('td')[4]['data-id']
+        if contest_path in latest_submission_ids:
+            if latest_submission_id == latest_submission_ids[contest_path]:
+                continue
+        if ( not(contest_path in latest_submission_ids) ) or ( int(newer_submission_id) > int(latest_submission_ids[contest_path]) ):
+            submission_trs = []
+            tasks = soup.find('select', id='select-task').find_all('option')[1:]
+            for task in tasks:
+                task_id = task['value']
+                tbody = get_html(f'{url}?f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length').find('tbody')  # NOTE: this query shows submissions with the same length in the ascending order of time
+                if not tbody: continue
+                submission_trs.append(tbody.find('tr'))
+        latest_submission_ids[contest_path] = latest_submission_id
+        
+        for tr in submission_trs:
+            tds = tr.find_all('td')
+            if tds[6].find('span').text != 'AC': continue
+            problem_title = tds[1].find('a').text
+            task_id = tds[1].find('a')['href'].split('/')[-1]
+            new_user = tds[2].find('a')['href'].split('/')[-1]
+            new_submission_id = tds[4]['data-id']
+            new_size = int(tds[5].text.split(' ')[0])
+            if task_id in shortest_codes:
+                old_size = shortest_codes[task_id]['size']
+                old_submission_id = shortest_codes[task_id]['submission_id']
+                old_user = shortest_codes[task_id]['user']
+                if new_size < old_size or (new_size == old_size and new_submission_id < old_submission_id):
+                    if new_user == old_user:
+                        text = f'{new_user} さんが自身のショートコードを更新しました！ ({old_size} Byte → {new_size} Byte)'
+                    else:
+                        text = f'{new_user} さんが {old_user} さんからショートコードを奪取しました！ ({old_size} Byte → {new_size} Byte)'
+                else: continue
+            else:
+                text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
+                shortest_codes[task_id] = {}
+            shortest_codes[task_id]['size'] = new_size
+            shortest_codes[task_id]['submission_id'] = new_submission_id
+            shortest_codes[task_id]['user'] = new_user
+            text = '\n'.join([ f'{contest_title}: {problem_title}', text, url+'/'+new_submission_id ])
+            print('[*]', text, file=sys.stderr)
+            
+            # post
+            if args.post:
+                if api is None:
+                    api = twitter.Api(
+                        consumer_key=args.consumer_key,
+                        consumer_secret=args.consumer_secret,
+                        access_token_key=args.access_token_key,
+                        access_token_secret=args.access_token_secret,
+                        sleep_on_rate_limit=True)
+                api.PostUpdate(text)
+            
+                # wait
+                time.sleep(3)
+    
     # write cache
     if args.store is not None:
         dirname = os.path.dirname(args.store)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         with open(args.store, 'w') as fh:
-            json.dump(merged_problems, fh)
-
-    # enumerate golfed submissions
-    last_problem_from_id = { row['id']: row for row in last_merged_problems }
-    for problem in merged_problems:
-        if problem['solver_count'] == 0:
-            continue
-        last_problem = last_problem_from_id.get(problem['id'], {})
-        last_submission_id = last_problem.get('shortest_submission_id')
-        if problem['shortest_submission_id'] == last_submission_id:
-            continue
-
-        # get submission
-        url = 'https://beta.atcoder.jp/contests/{shortest_contest_id}/submissions/{shortest_submission_id}'.format(**problem)
-        new_submission = get_submission(url)
-
-        contest_title = content_from_id[problem['shortest_contest_id']]['title']
-        problem_title = problem['title']
-        new_user = problem['shortest_user_id']
-        new_size = new_submission['info']['code_size']
-        if last_submission_id:
-            old_url = 'https://beta.atcoder.jp/contests/{shortest_contest_id}/submissions/{shortest_submission_id}'.format(**last_problem)
-            old_submission = get_submission(old_url)
-            old_user = last_problem['shortest_user_id']
-            old_size = old_submission['info']['code_size']
-            if new_user == old_user:
-                text = f'{new_user} さんが自身のショートコードを更新しました！ ({old_size} → {new_size})'
-            else:
-                text = f'{new_user} さんが {old_user} さんからショートコードを奪取しました！ ({old_size} → {new_size})'
-        else:
-            text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size})'
-        text = '\n'.join([ f'{contest_title}: {problem_title}', text, url ])
-        print('[*]', text, file=sys.stderr)
-
-        # post
-        if args.post:
-            if api is None:
-                api = twitter.Api(
-                    consumer_key=args.consumer_key,
-                    consumer_secret=args.consumer_secret,
-                    access_token_key=args.access_token_key,
-                    access_token_secret=args.access_token_secret,
-                    sleep_on_rate_limit=True)
-            api.PostUpdate(text)
-
-        # wait
-        time.sleep(3)
+            json.dump([ shortest_codes, latest_submission_ids ], fh)
 
 
 if __name__ == '__main__':
     main()
+
