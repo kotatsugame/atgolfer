@@ -45,6 +45,70 @@ def can_read_submissions(contest_path):
     return False
 
 
+# TODO: this function should be a class
+def crawl_contest(contest, shortest_codes, latest_submission_ids):
+    contest_title = contest.title
+    contest_path = contest.path
+    if not(contest_path in latest_submission_ids):
+        if not can_read_submissions(contest_path):
+            return []
+
+    # read /contests/{contest_id}/submissions to list tasks and check new submissions 
+    url = f'https://atcoder.jp{contest_path}/submissions'
+    soup = get_html(url)
+    tbody = soup.find('tbody')
+    if not tbody:
+        return []  # no privilege to read
+    submission_trs = tbody.find_all('tr')
+    latest_submission_id = submission_trs[0].find_all('td')[4]['data-id']
+    newer_submission_id = submission_trs[-1].find_all('td')[4]['data-id']
+    if contest_path in latest_submission_ids:
+        if latest_submission_id == latest_submission_ids[contest_path]:
+            return []  # no new submissions
+
+    # read submissions of tasks
+    if ( not(contest_path in latest_submission_ids) ) or ( int(newer_submission_id) > int(latest_submission_ids[contest_path]) ):
+        submission_trs = []
+        tasks = soup.find('select', id='select-task').find_all('option')[1:]
+        for task in tasks:
+            task_id = task['value']
+            query = f'f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length'  # NOTE: this query shows submissions with the same length in the ascending order of time
+            tbody = get_html(f'{url}?{query}').find('tbody')
+            if not tbody: continue
+            submission_trs.append(tbody.find('tr'))
+    latest_submission_ids[contest_path] = latest_submission_id
+
+    # check the shortest submissions
+    texts = []
+    for tr in submission_trs:
+        tds = tr.find_all('td')
+        if tds[6].find('span').text != 'AC': continue
+        problem_title = tds[1].find('a').text
+        task_id = tds[1].find('a')['href'].split('/')[-1]
+        new_user = tds[2].find('a')['href'].split('/')[-1]
+        new_submission_id = tds[4]['data-id']
+        new_size = int(tds[5].text.split(' ')[0])
+        if task_id in shortest_codes:
+            old_size = shortest_codes[task_id]['size']
+            old_submission_id = shortest_codes[task_id]['submission_id']
+            old_user = shortest_codes[task_id]['user']
+            if new_size < old_size or (new_size == old_size and new_submission_id < old_submission_id):
+                if new_user == old_user:
+                    text = f'{new_user} さんが自身のショートコードを更新しました！ ({old_size} Byte → {new_size} Byte)'
+                else:
+                    text = f'{new_user} さんが {old_user} さんからショートコードを奪取しました！ ({old_size} Byte → {new_size} Byte)'
+            else: continue
+        else:
+            text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
+            shortest_codes[task_id] = {}
+        shortest_codes[task_id]['size'] = new_size
+        shortest_codes[task_id]['submission_id'] = new_submission_id
+        shortest_codes[task_id]['user'] = new_user
+        text = '\n'.join([ f'{contest_title}: {problem_title}', text, url+'/'+new_submission_id ])
+        texts += [ text ]
+    return texts
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--post', action='store_true')
@@ -77,61 +141,12 @@ def main():
     if args.only_abc00x:
         contests = [ contest for contest in contests if '/abc00' in contest.path ]
     contest_count = len(contests)
-    contest_number = 0
-    for contest in contests:
-        contest_title = contest.title
-        contest_path = contest.path
-        contest_number += 1
-        print('[*]', f'{contest_number}/{contest_count}: {contest_title}', file=sys.stderr)
-        if not(contest_path in latest_submission_ids):
-            if not can_read_submissions(contest_path):
-                continue
 
-        url = f'https://atcoder.jp{contest_path}/submissions'
-        soup = get_html(url)
-        tbody = soup.find('tbody')
-        if not tbody: continue
-        submission_trs = tbody.find_all('tr')
-        latest_submission_id = submission_trs[0].find_all('td')[4]['data-id']
-        newer_submission_id = submission_trs[-1].find_all('td')[4]['data-id']
-        if contest_path in latest_submission_ids:
-            if latest_submission_id == latest_submission_ids[contest_path]:
-                continue
-        if ( not(contest_path in latest_submission_ids) ) or ( int(newer_submission_id) > int(latest_submission_ids[contest_path]) ):
-            submission_trs = []
-            tasks = soup.find('select', id='select-task').find_all('option')[1:]
-            for task in tasks:
-                task_id = task['value']
-                tbody = get_html(f'{url}?f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length').find('tbody')  # NOTE: this query shows submissions with the same length in the ascending order of time
-                if not tbody: continue
-                submission_trs.append(tbody.find('tr'))
-        latest_submission_ids[contest_path] = latest_submission_id
+    for i, contest in enumerate(contests):
+        print('[*]', f'{i + 1}/{contest_count}: {contest.title}', file=sys.stderr)
+        texts = crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids)
 
-        for tr in submission_trs:
-            tds = tr.find_all('td')
-            if tds[6].find('span').text != 'AC': continue
-            problem_title = tds[1].find('a').text
-            task_id = tds[1].find('a')['href'].split('/')[-1]
-            new_user = tds[2].find('a')['href'].split('/')[-1]
-            new_submission_id = tds[4]['data-id']
-            new_size = int(tds[5].text.split(' ')[0])
-            if task_id in shortest_codes:
-                old_size = shortest_codes[task_id]['size']
-                old_submission_id = shortest_codes[task_id]['submission_id']
-                old_user = shortest_codes[task_id]['user']
-                if new_size < old_size or (new_size == old_size and new_submission_id < old_submission_id):
-                    if new_user == old_user:
-                        text = f'{new_user} さんが自身のショートコードを更新しました！ ({old_size} Byte → {new_size} Byte)'
-                    else:
-                        text = f'{new_user} さんが {old_user} さんからショートコードを奪取しました！ ({old_size} Byte → {new_size} Byte)'
-                else: continue
-            else:
-                text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
-                shortest_codes[task_id] = {}
-            shortest_codes[task_id]['size'] = new_size
-            shortest_codes[task_id]['submission_id'] = new_submission_id
-            shortest_codes[task_id]['user'] = new_user
-            text = '\n'.join([ f'{contest_title}: {problem_title}', text, url+'/'+new_submission_id ])
+        for text in texts:
             print('[*]', text, file=sys.stderr)
 
             # post
@@ -144,8 +159,6 @@ def main():
                         access_token_secret=args.access_token_secret,
                         sleep_on_rate_limit=True)
                 api.PostUpdate(text)
-
-                # wait
                 time.sleep(3)
 
     # write cache
