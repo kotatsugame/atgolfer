@@ -56,6 +56,7 @@ def main():
     parser.add_argument('--consumer-secret')
     parser.add_argument('--access-token-key')
     parser.add_argument('--access-token-secret')
+    parser.add_argument('--only-abc00x', action='store_true', help='for debug')
     args = parser.parse_args()
 
     # logging in is postponed
@@ -73,6 +74,8 @@ def main():
 
     # get data
     contests = get_contests()
+    if args.only_abc00x:
+        contests = [ contest for contest in contests if '/abc00' in contest.path ]
     contest_count = len(contests)
     contest_number = 0
     for contest in contests:
