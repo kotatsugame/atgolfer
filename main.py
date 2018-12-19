@@ -31,7 +31,6 @@ def get_contests():
         for tr in tbody.find_all('tr'):
             a = tr.find_all('a')[1]
             contests.append(Contest(title=a.text, path=a['href']))
-        time.sleep(0.5)
     return contests
 
 
