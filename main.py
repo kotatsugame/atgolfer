@@ -109,7 +109,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
         shortest_codes[task_id]['size'] = new_size
         shortest_codes[task_id]['submission_id'] = new_submission_id
         shortest_codes[task_id]['user'] = new_user
-        text = '\n'.join([ f'{contest.title}: {problem_title}', text, f'{url} / {new_submission_id}' ])
+        text = '\n'.join([ f'{contest.title}: {problem_title}', text, f'{url}/{new_submission_id}' ])
         texts += [ text ]
     return texts
 
