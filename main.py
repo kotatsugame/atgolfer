@@ -22,7 +22,7 @@ def get_html(url):
 
 def get_contests():
     url = 'https://atcoder.jp/contests/archive?lang=ja'
-    finalpage = int(get_html(url).find('ul', class_='pagination pagination-sm mt-0 mb-1').find_all('li')[-1].text)
+    finalpage = int(get_html(url).find('ul', class_='pagination').find_all('li')[-1].text)
     contests = []
     Contest = namedtuple('Contest', [ 'title', 'id' ])
     for i in range(1, finalpage+1):
