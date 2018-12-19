@@ -36,32 +36,23 @@ def get_contests():
     return contests
 
 
-def can_read_submissions(contest_id):
-    tabs = get_html(f'https://atcoder.jp/contests/{contest_id}').find('ul', class_='nav nav-tabs').find_all('li')
-    for tab in tabs:
-        ul = tab.find('ul')
-        if not ul: continue
-        li = ul.find('li')
-        if not li: continue
-        if li.find('a', href=f'/contests/{contest_id}/submissions'):
-            return True
-    return False
-
-
 # TODO: this function should be a class
 def crawl_contest(contest, shortest_codes, latest_submission_ids):
     contest_title = contest.title
     contest_path = '/contests/' + contest.id
-    if not(contest_path in latest_submission_ids):
-        if not can_read_submissions(contest.id):
-            return []
 
     # read /contests/{contest_id}/submissions to list tasks and check new submissions 
-    url = f'https://atcoder.jp/contests/{contest.id}/submissions'
-    soup = get_html(url)
+    try:
+        url = f'https://atcoder.jp/contests/{contest.id}/submissions'
+        soup = get_html(url)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            # TODO: when is this line executed?
+            return []  # no privilege to read
+        else:
+            raise e
     tbody = soup.find('tbody')
-    if not tbody:
-        return []  # no privilege to read
+    assert tbody
     submission_trs = tbody.find_all('tr')
     latest_submission_id = submission_trs[0].find_all('td')[4]['data-id']
     newer_submission_id = submission_trs[-1].find_all('td')[4]['data-id']
