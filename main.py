@@ -12,6 +12,7 @@ from collections import namedtuple
 
 
 def get_html(url):
+    print('[*] GET', url, file=sys.stderr)
     resp = requests.get(url)
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
@@ -21,12 +22,10 @@ def get_html(url):
 
 def get_contests():
     url = 'https://atcoder.jp/contests/archive?lang=ja'
-    print('[*] GET', url, file=sys.stderr)
     finalpage = int(get_html(url).find('ul', class_='pagination pagination-sm mt-0 mb-1').find_all('li')[-1].text)
     contests = []
     Contest = namedtuple('Contest', [ 'title', 'path' ])
     for i in range(1, finalpage+1):
-        print('[*] GET', f'{url}&page={i}', file=sys.stderr)
         tbody = get_html(f'{url}&page={i}').find('tbody')
         for tr in tbody.find_all('tr'):
             a = tr.find_all('a')[1]
