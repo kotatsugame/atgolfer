@@ -50,6 +50,7 @@ def get_contests(limit=None):
 
 
 # TODO: this function should be a class
+# NOTE: this should be a generator because recovering from errors becomes easier
 def crawl_contest(contest, shortest_codes, latest_submission_ids):
 
     # read /contests/{contest_id}/submissions to list tasks and check new submissions 
@@ -59,7 +60,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
             # TODO: when is this line executed?
-            return []  # no privilege to read
+            return  # no privilege to rea
         else:
             raise e
     tbody = soup.find('tbody')
@@ -69,7 +70,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
     newer_submission_id = int(submission_trs[-1].find_all('td')[4]['data-id'])
     if contest.id in latest_submission_ids:
         if latest_submission_id == latest_submission_ids[contest.id]:
-            return []  # no new submissions
+            return  # no new submissions
 
     # read submissions of tasks
     if ( not(contest.id in latest_submission_ids) ) or ( int(newer_submission_id) > int(latest_submission_ids[contest.id]) ):
@@ -81,10 +82,8 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
             tbody = get_html(f'{url}?{query}').find('tbody')
             if not tbody: continue
             submission_trs.append(tbody.find('tr'))
-    latest_submission_ids[contest.id] = latest_submission_id
 
     # check the shortest submissions
-    texts = []
     for tr in submission_trs:
         tds = tr.find_all('td')
         if tds[6].find('span').text != 'AC': continue
@@ -106,12 +105,14 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
         else:
             text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
             shortest_codes[task_id] = {}
+        yield '\n'.join([ f'{contest.title}: {problem_title}', text, f'{url}/{new_submission_id}' ])
+
+        # NOTE: update shortest_codes after yielding; this is for cases when it fails to tweet and an exception is thrown
         shortest_codes[task_id]['size'] = new_size
         shortest_codes[task_id]['submission_id'] = new_submission_id
         shortest_codes[task_id]['user'] = new_user
-        text = '\n'.join([ f'{contest.title}: {problem_title}', text, f'{url}/{new_submission_id}' ])
-        texts += [ text ]
-    return texts
+
+    latest_submission_ids[contest.id] = latest_submission_id  # NOTE: also this update must be here
 
 
 def main():
@@ -139,6 +140,7 @@ def main():
     shortest_codes = {}
     latest_submission_ids = {}
     if args.load is not None and os.path.exists(args.load):
+        print('[*] load cache from', args.store, file=sys.stderr)
         with open(args.load) as fh:
             shortest_codes, latest_submission_ids = json.load(fh)
 
@@ -153,8 +155,7 @@ def main():
 
         for i, contest in enumerate(contests):
             print('[*]', f'{i + 1}/{contest_count}: {contest.title}', file=sys.stderr)
-            texts = crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids)
-            for text in texts:
+            for text in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
                 yield text
 
     # get data from AtCoder Problems
@@ -180,38 +181,39 @@ def main():
 
             if contest.id not in crawled_contest_ids:
                 crawled_contest_ids.add(contest.id)
-                texts = crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids)
-                for text in texts:
+                for text in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
                     yield text
 
-
     # get data
-    if args.use_atcoder_problems:
-        gen = itertools.chain(read_atcoder(limit=5), read_atcoder_problems())
-    else:
-        gen = read_atcoder()
-    for text in gen:
-        print('[*]', text, file=sys.stderr)
+    try:
+        if args.use_atcoder_problems:
+            gen = itertools.chain(read_atcoder(limit=5), read_atcoder_problems())
+        else:
+            gen = read_atcoder()
+        for text in gen:
+            print('[*]', text, file=sys.stderr)
 
-        # post
-        if args.post:
-            if api is None:
-                api = twitter.Api(
-                    consumer_key=args.consumer_key,
-                    consumer_secret=args.consumer_secret,
-                    access_token_key=args.access_token_key,
-                    access_token_secret=args.access_token_secret,
-                    sleep_on_rate_limit=True)
-            api.PostUpdate(text)
-            time.sleep(3)
+            # post
+            if args.post:
+                if api is None:
+                    api = twitter.Api(
+                        consumer_key=args.consumer_key,
+                        consumer_secret=args.consumer_secret,
+                        access_token_key=args.access_token_key,
+                        access_token_secret=args.access_token_secret,
+                        sleep_on_rate_limit=True)
+                api.PostUpdate(text)
+                time.sleep(3)
 
-    # write cache
-    if args.store is not None:
-        dirname = os.path.dirname(args.store)
-        if dirname and not os.path.exists(dirname):
-            os.makedirs(dirname)
-        with open(args.store, 'w') as fh:
-            json.dump([ shortest_codes, latest_submission_ids ], fh)
+    finally:
+        # write cache
+        if args.store is not None:
+            print('[*] store cache to', args.store, file=sys.stderr)
+            dirname = os.path.dirname(args.store)
+            if dirname and not os.path.exists(dirname):
+                os.makedirs(dirname)
+            with open(args.store, 'w') as fh:
+                json.dump([ shortest_codes, latest_submission_ids ], fh)
 
 
 if __name__ == '__main__':
