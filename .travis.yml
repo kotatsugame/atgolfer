@@ -6,10 +6,10 @@ install:
     - pip install autopep8
 script:
     - diff <(autopep8 main.py) main.py
-    - python main.py --only-abc00x
-    - python main.py --only-abc00x --use-atcoder-problems
-    - python main.py --only-abc00x
-    - python main.py --only-abc00x --use-atcoder-problems
+    - python main.py --load data.json --store data.json --only-abc00x
+    - python main.py --load data.json --store data.json --only-abc00x --use-atcoder-problems
+    - python main.py --load data.json --store data.json --only-abc00x
+    - python main.py --load data.json --store data.json --only-abc00x --use-atcoder-problems
 branches:
     only:
         - master
