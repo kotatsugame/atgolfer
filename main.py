@@ -176,6 +176,11 @@ def main():
             'https://kenkoooo.com/atcoder/atcoder-api/info/contests')
         merged_problems = get_json(
             'https://kenkoooo.com/atcoder/atcoder-api/info/merged-problems')
+        if args.only_abc00x:
+            contests = [
+                contest for contest in contests if contest['id'].startswith('abc00')]
+            merged_problems = [
+                problem for problem in merged_problems if problem.get('shortest_contest_id', '').startswith('abc00')]
 
         contests_dict = {contest['id']: contest for contest in contests}
         crawled_contest_ids = set()
