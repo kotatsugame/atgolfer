@@ -110,7 +110,9 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
         else:
             text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
             shortest_codes[task_id] = {}
-        yield '\n'.join([f'{contest.title}: {problem_title}', text, f'{url}/{new_submission_id}'])
+        text = '\n'.join([f'{contest.title}: {problem_title}',
+                          text, f'{url}/{new_submission_id}'])
+        yield {'text': text, 'problem_id': task_id}
 
         # NOTE: update shortest_codes after yielding; this is for cases when it fails to tweet and an exception is thrown
         shortest_codes[task_id]['size'] = new_size
@@ -148,10 +150,14 @@ def main():
     # load cache
     shortest_codes = {}
     latest_submission_ids = {}
+    last_status_id = {}
     if args.load is not None and os.path.exists(args.load):
         print('[*] load cache from', args.store, file=sys.stderr)
         with open(args.load) as fh:
-            shortest_codes, latest_submission_ids = json.load(fh)
+            loaded_cache = json.load(fh)
+        shortest_codes = loaded_cache['shortest_codes']
+        latest_submission_ids = loaded_cache['latest_submission_ids']
+        last_status_id = loaded_cache['last_status_id']
 
     # get data from AtCoder
     def read_atcoder(limit=None):
@@ -167,8 +173,8 @@ def main():
         for i, contest in enumerate(contests):
             print(
                 '[*]', f'{i + 1}/{contest_count}: {contest.title}', file=sys.stderr)
-            for text in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
-                yield text
+            for data in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
+                yield data
 
     # get data from AtCoder Problems
     def read_atcoder_problems():
@@ -201,8 +207,8 @@ def main():
 
             if contest.id not in crawled_contest_ids:
                 crawled_contest_ids.add(contest.id)
-                for text in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
-                    yield text
+                for data in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
+                    yield data
 
     # get data
     try:
@@ -211,8 +217,13 @@ def main():
                                   read_atcoder_problems())
         else:
             gen = read_atcoder()
-        for text in gen:
-            print('[*]', text, file=sys.stderr)
+        for data in gen:
+            in_reply_to_status_id = last_status_id.get(data['problem_id'])
+
+            print('[*]', data['text'], file=sys.stderr)
+            if in_reply_to_status_id is not None:
+                print('[*] in_reply_to_status_id =',
+                      in_reply_to_status_id, file=sys.stderr)
 
             # post
             if args.post:
@@ -223,7 +234,9 @@ def main():
                         access_token_key=args.access_token_key,
                         access_token_secret=args.access_token_secret,
                         sleep_on_rate_limit=True)
-                api.PostUpdate(text)
+                status = api.PostUpdate(
+                    data['text'], in_reply_to_status_id=in_reply_to_status_id)
+                last_status_id[data['problem_id']] = status.id
                 time.sleep(3)
 
     finally:
@@ -233,8 +246,13 @@ def main():
             dirname = os.path.dirname(args.store)
             if dirname and not os.path.exists(dirname):
                 os.makedirs(dirname)
+            stored_cache = {
+                'shortest_codes': shortest_codes,
+                'latest_submission_ids': latest_submission_ids,
+                'last_status_id': last_status_id,
+            }
             with open(args.store, 'w') as fh:
-                json.dump([shortest_codes, latest_submission_ids], fh)
+                json.dump(stored_cache, fh)
 
 
 if __name__ == '__main__':
