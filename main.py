@@ -177,17 +177,24 @@ def main() -> None:
     sess = cachecontrol.CacheControl(sess, cache=web_cache)
 
     # load cache
-    data_json_path = os.path.join(args.directory, 'data.json')
     shortest_codes: Dict[str, Dict[str, Any]] = {}
     latest_submission_ids: Dict[str, int] = {}
     last_status_id: Dict[str, int] = {}
-    if os.path.exists(data_json_path):
-        logger.info('[*] load cache from %s', data_json_path)
-        with open(data_json_path) as fh:
-            loaded_cache = json.load(fh)
-        shortest_codes = loaded_cache['shortest_codes']
-        latest_submission_ids = loaded_cache['latest_submission_ids']
-        last_status_id = loaded_cache['last_status_id']
+    shortest_codes_json_path = os.path.join(args.directory, 'shortest_codes.json')
+    latest_submission_ids_json_path = os.path.join(args.directory, 'latest_submission_ids.json')
+    last_status_id_json_path = os.path.join(args.directory, 'last_status_id.json')
+    if os.path.exists(shortest_codes_json_path):
+        logger.info('[*] load cache from %s', shortest_codes_json_path)
+        with open(shortest_codes_json_path) as fh:
+            shortest_codes = json.load(fh)
+    if os.path.exists(latest_submission_ids_json_path):
+        logger.info('[*] load cache from %s', latest_submission_ids_json_path)
+        with open(latest_submission_ids_json_path) as fh:
+            latest_submission_ids = json.load(fh)
+    if os.path.exists(last_status_id_json_path):
+        logger.info('[*] load cache from %s', last_status_id_json_path)
+        with open(last_status_id_json_path) as fh:
+            last_status_id = json.load(fh)
 
     # get data from AtCoder
     def read_atcoder(limit: Optional[int] = None) -> Iterator[Dict[str, str]]:
@@ -257,17 +264,17 @@ def main() -> None:
     finally:
         # write cache
         if not args.dry_run:
-            logger.info('[*] store cache to %s', data_json_path)
-            dirname = os.path.dirname(data_json_path)
-            if dirname and not os.path.exists(dirname):
-                os.makedirs(dirname)
-            stored_cache = {
-                'shortest_codes': shortest_codes,
-                'latest_submission_ids': latest_submission_ids,
-                'last_status_id': last_status_id,
-            }
-            with open(data_json_path, 'w') as fh:
-                json.dump(stored_cache, fh)
+            if not os.path.exists(args.directory):
+                os.makedirs(args.directory)
+            logger.info('[*] store cache to %s', shortest_codes_json_path)
+            with open(shortest_codes_json_path, 'w') as fh:
+                json.dump(shortest_codes, fh)
+            logger.info('[*] store cache to %s', latest_submission_ids_json_path)
+            with open(latest_submission_ids_json_path, 'w') as fh:
+                json.dump(latest_submission_ids, fh)
+            logger.info('[*] store cache to %s', last_status_id_json_path)
+            with open(last_status_id_json_path, 'w') as fh:
+                json.dump(last_status_id, fh)
 
 
 if __name__ == '__main__':
