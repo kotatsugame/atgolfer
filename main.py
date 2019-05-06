@@ -6,7 +6,7 @@ import json
 import os.path
 import sys
 import time
-from collections import namedtuple
+from typing import *
 
 import bs4
 import cachecontrol
@@ -14,12 +14,16 @@ import cachecontrol.caches.file_cache
 import requests
 import twitter
 
-Contest = namedtuple('Contest', ['title', 'id'])
+
+class Contest(NamedTuple):
+    title: str
+    id: str
+
 
 sess = requests.Session()
 
 
-def get_html(url):
+def get_html(url: str) -> bs4.BeautifulSoup:
     print('[*] GET', url, file=sys.stderr)
     resp = sess.get(url)
     resp.raise_for_status()
@@ -28,7 +32,7 @@ def get_html(url):
     return soup
 
 
-def get_json(url):
+def get_json(url: str) -> Any:
     print('[*] GET', url, file=sys.stderr)
     resp = sess.get(url)
     resp.raise_for_status()
@@ -36,7 +40,7 @@ def get_json(url):
     return json.loads(resp.content)
 
 
-def get_contests(limit=None):
+def get_contests(limit: Optional[int] = None) -> List[Contest]:
     url = 'https://atcoder.jp/contests/archive?lang=ja'
     finalpage = int(get_html(url).find('ul', class_='pagination').find_all('li')[-1].text)
     contests = []
@@ -55,7 +59,7 @@ def get_contests(limit=None):
 
 # TODO: this function should be a class
 # NOTE: this should be a generator because recovering from errors becomes easier
-def crawl_contest(contest, shortest_codes, latest_submission_ids):
+def crawl_contest(contest: Contest, shortest_codes: Dict[str, Dict[str, Any]], latest_submission_ids: Dict[str, int]) -> Iterator[Dict[str, str]]:
 
     # read /contests/{contest_id}/submissions to list tasks and check new submissions
     try:
@@ -125,7 +129,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
     latest_submission_ids[contest.id] = latest_submission_id
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-atcoder-problems', action='store_true')
     parser.add_argument('--post', action='store_true')
@@ -154,9 +158,9 @@ def main():
         sess = cachecontrol.CacheControl(sess, cache=web_cache)
 
     # load cache
-    shortest_codes = {}
-    latest_submission_ids = {}
-    last_status_id = {}
+    shortest_codes: Dict[str, Dict[str, Any]] = {}
+    latest_submission_ids: Dict[str, int] = {}
+    last_status_id: Dict[str, int] = {}
     if args.load is not None and os.path.exists(args.load):
         print('[*] load cache from', args.store, file=sys.stderr)
         with open(args.load) as fh:
@@ -166,7 +170,7 @@ def main():
         last_status_id = loaded_cache['last_status_id']
 
     # get data from AtCoder
-    def read_atcoder(limit=None):
+    def read_atcoder(limit: Optional[int] = None) -> Iterator[Dict[str, str]]:
         contests = get_contests(limit=limit)
         if args.only_abc00x:
             contests = [contest for contest in contests if contest.id.startswith('abc00')]
@@ -181,15 +185,15 @@ def main():
                 yield data
 
     # get data from AtCoder Problems
-    def read_atcoder_problems():
-        contests = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/contests')
-        merged_problems = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/merged-problems')
+    def read_atcoder_problems() -> Iterator[Dict[str, str]]:
+        contests: List[Dict[str, Any]] = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/contests')
+        merged_problems: List[Dict[str, Any]] = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/merged-problems')
         if args.only_abc00x:
             contests = [contest for contest in contests if contest['id'].startswith('abc00')]
             merged_problems = [problem for problem in merged_problems if (problem['shortest_contest_id'] or '').startswith('abc00')]
 
         contests_dict = {contest['id']: contest for contest in contests}
-        crawled_contest_ids = set()
+        crawled_contest_ids: Set[str] = set()
         for i, problem in enumerate(merged_problems):
             if problem['shortest_submission_id'] is None:
                 continue
@@ -212,7 +216,7 @@ def main():
     # get data
     try:
         if args.use_atcoder_problems:
-            gen = itertools.chain(read_atcoder(limit=5), read_atcoder_problems())
+            gen: Iterator[Dict[str, str]] = itertools.chain(read_atcoder(limit=5), read_atcoder_problems())
         else:
             gen = read_atcoder()
         for data in gen:
