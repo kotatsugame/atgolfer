@@ -11,7 +11,3 @@ script:
     - ATGOLFER_DIR=. python main.py --only-abc00x --use-atcoder-problems
     - ATGOLFER_DIR=. python main.py --only-abc00x
     - ATGOLFER_DIR=. python main.py --only-abc00x --use-atcoder-problems
-branches:
-    only:
-        - master
-        - develop
