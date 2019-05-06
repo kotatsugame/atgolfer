@@ -1,18 +1,18 @@
 # Python Version: 3.x
 import argparse
-import bs4
 import datetime
 import itertools
 import json
 import os.path
-import requests
-import cachecontrol
-import cachecontrol.caches.file_cache
 import sys
 import time
-import twitter  # $ sudo pip3 install python-twitter
 from collections import namedtuple
 
+import bs4
+import cachecontrol
+import cachecontrol.caches.file_cache
+import requests
+import twitter
 
 Contest = namedtuple('Contest', ['title', 'id'])
 
@@ -38,8 +38,7 @@ def get_json(url):
 
 def get_contests(limit=None):
     url = 'https://atcoder.jp/contests/archive?lang=ja'
-    finalpage = int(get_html(url).find(
-        'ul', class_='pagination').find_all('li')[-1].text)
+    finalpage = int(get_html(url).find('ul', class_='pagination').find_all('li')[-1].text)
     contests = []
     for i in range(1, finalpage + 1):
         tbody = get_html(f'{url}&page={i}').find('tbody')
@@ -78,7 +77,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
             return  # no new submissions
 
     # read submissions of tasks
-    if (not(contest.id in latest_submission_ids)) or (int(newer_submission_id) > int(latest_submission_ids[contest.id])):
+    if (not (contest.id in latest_submission_ids)) or (int(newer_submission_id) > int(latest_submission_ids[contest.id])):
         submission_trs = []
         tasks = soup.find('select', id='select-task').find_all('option')[1:]
         for task in tasks:
@@ -114,8 +113,7 @@ def crawl_contest(contest, shortest_codes, latest_submission_ids):
         else:
             text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
             shortest_codes[task_id] = {}
-        text = '\n'.join([f'{contest.title}: {problem_title}',
-                          text, f'{url}/{new_submission_id}'])
+        text = '\n'.join([f'{contest.title}: {problem_title}', text, f'{url}/{new_submission_id}'])
         yield {'text': text, 'problem_id': task_id}
 
         # NOTE: update shortest_codes after yielding; this is for cases when it fails to tweet and an exception is thrown
@@ -134,10 +132,8 @@ def main():
     parser.add_argument('--store')
     parser.add_argument('--load')
     parser.add_argument('--web-cache')
-    parser.add_argument('--no-store', action='store_const',
-                        const=None, dest='store')
-    parser.add_argument('--no-load',  action='store_const',
-                        const=None, dest='load')
+    parser.add_argument('--no-store', action='store_const', const=None, dest='store')
+    parser.add_argument('--no-load', action='store_const', const=None, dest='load')
     parser.add_argument('--consumer-key')
     parser.add_argument('--consumer-secret')
     parser.add_argument('--access-token-key')
@@ -148,8 +144,7 @@ def main():
     # logging in is postponed
     if args.post:
         if not args.consumer_key or not args.consumer_secret or not args.access_token_key or not args.access_token_secret:
-            parser.error(
-                'all of --{consumer,access-token}-{key,secret} are required if --post is used')
+            parser.error('all of --{consumer,access-token}-{key,secret} are required if --post is used')
         api = None
 
     # set web cache
@@ -174,30 +169,24 @@ def main():
     def read_atcoder(limit=None):
         contests = get_contests(limit=limit)
         if args.only_abc00x:
-            contests = [
-                contest for contest in contests if contest.id.startswith('abc00')]
+            contests = [contest for contest in contests if contest.id.startswith('abc00')]
         if limit is None:
             # NOTE: add poison for stability
             contests = [Contest('practice contest', 'practice')] + contests
         contest_count = len(contests)
 
         for i, contest in enumerate(contests):
-            print(
-                '[*]', f'{i + 1}/{contest_count}: {contest.title}', file=sys.stderr)
+            print('[*]', f'{i + 1}/{contest_count}: {contest.title}', file=sys.stderr)
             for data in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
                 yield data
 
     # get data from AtCoder Problems
     def read_atcoder_problems():
-        contests = get_json(
-            'https://kenkoooo.com/atcoder/atcoder-api/info/contests')
-        merged_problems = get_json(
-            'https://kenkoooo.com/atcoder/atcoder-api/info/merged-problems')
+        contests = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/contests')
+        merged_problems = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/merged-problems')
         if args.only_abc00x:
-            contests = [
-                contest for contest in contests if contest['id'].startswith('abc00')]
-            merged_problems = [
-                problem for problem in merged_problems if (problem['shortest_contest_id'] or '').startswith('abc00')]
+            contests = [contest for contest in contests if contest['id'].startswith('abc00')]
+            merged_problems = [problem for problem in merged_problems if (problem['shortest_contest_id'] or '').startswith('abc00')]
 
         contests_dict = {contest['id']: contest for contest in contests}
         crawled_contest_ids = set()
@@ -206,8 +195,7 @@ def main():
                 continue
             contest_id = problem['shortest_contest_id']
             contest = Contest(contests_dict[contest_id]['title'], contest_id)
-            print(
-                '[*]', f'{i + 1}/{len(merged_problems)}: {contest.title}. {problem["title"]}', file=sys.stderr)
+            print('[*]', f'{i + 1}/{len(merged_problems)}: {contest.title}. {problem["title"]}', file=sys.stderr)
 
             if problem['id'] in shortest_codes:
                 if problem['shortest_submission_id'] == shortest_codes[problem['id']]['submission_id']:
@@ -224,8 +212,7 @@ def main():
     # get data
     try:
         if args.use_atcoder_problems:
-            gen = itertools.chain(read_atcoder(limit=5),
-                                  read_atcoder_problems())
+            gen = itertools.chain(read_atcoder(limit=5), read_atcoder_problems())
         else:
             gen = read_atcoder()
         for data in gen:
@@ -233,20 +220,13 @@ def main():
 
             print('[*]', data['text'], file=sys.stderr)
             if in_reply_to_status_id is not None:
-                print('[*] in_reply_to_status_id =',
-                      in_reply_to_status_id, file=sys.stderr)
+                print('[*] in_reply_to_status_id =', in_reply_to_status_id, file=sys.stderr)
 
             # post
             if args.post:
                 if api is None:
-                    api = twitter.Api(
-                        consumer_key=args.consumer_key,
-                        consumer_secret=args.consumer_secret,
-                        access_token_key=args.access_token_key,
-                        access_token_secret=args.access_token_secret,
-                        sleep_on_rate_limit=True)
-                status = api.PostUpdate(
-                    data['text'], in_reply_to_status_id=in_reply_to_status_id)
+                    api = twitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token_key=args.access_token_key, access_token_secret=args.access_token_secret, sleep_on_rate_limit=True)
+                status = api.PostUpdate(data['text'], in_reply_to_status_id=in_reply_to_status_id)
                 last_status_id[data['problem_id']] = status.id
                 time.sleep(3)
 
