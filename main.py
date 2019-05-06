@@ -191,7 +191,7 @@ def main():
         contests_dict = {contest['id']: contest for contest in contests}
         crawled_contest_ids = set()
         for i, problem in enumerate(merged_problems):
-            if 'shortest_submission_id' not in problem:
+            if problem['shortest_submission_id'] is None:
                 continue
             contest_id = problem['shortest_contest_id']
             contest = Contest(contests_dict[contest_id]['title'], contest_id)
