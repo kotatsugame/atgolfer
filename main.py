@@ -6,6 +6,8 @@ import itertools
 import json
 import os.path
 import requests
+import cachecontrol
+import cachecontrol.caches.file_cache
 import sys
 import time
 import twitter  # $ sudo pip3 install python-twitter
@@ -14,10 +16,12 @@ from collections import namedtuple
 
 Contest = namedtuple('Contest', ['title', 'id'])
 
+sess = requests.Session()
+
 
 def get_html(url):
     print('[*] GET', url, file=sys.stderr)
-    resp = requests.get(url)
+    resp = sess.get(url)
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
     time.sleep(0.5)
@@ -26,7 +30,7 @@ def get_html(url):
 
 def get_json(url):
     print('[*] GET', url, file=sys.stderr)
-    resp = requests.get(url)
+    resp = sess.get(url)
     resp.raise_for_status()
     time.sleep(0.5)
     return json.loads(resp.content)
@@ -129,6 +133,7 @@ def main():
     parser.add_argument('--post', action='store_true')
     parser.add_argument('--store')
     parser.add_argument('--load')
+    parser.add_argument('--web-cache')
     parser.add_argument('--no-store', action='store_const',
                         const=None, dest='store')
     parser.add_argument('--no-load',  action='store_const',
@@ -146,6 +151,12 @@ def main():
             parser.error(
                 'all of --{consumer,access-token}-{key,secret} are required if --post is used')
         api = None
+
+    # set web cache
+    if args.web_cache:
+        global sess
+        web_cache = cachecontrol.caches.file_cache.FileCache(args.web_cache, forever=True)
+        sess = cachecontrol.CacheControl(sess, cache=web_cache)
 
     # load cache
     shortest_codes = {}
