@@ -6,6 +6,7 @@ import json
 import os.path
 import sys
 import time
+from logging import DEBUG, StreamHandler, getLogger
 from typing import *
 
 import bs4
@@ -20,11 +21,19 @@ class Contest(NamedTuple):
     id: str
 
 
+# logging
+logger = getLogger(__name__)
+handler = StreamHandler()
+handler.setLevel(DEBUG)
+logger.setLevel(DEBUG)
+logger.addHandler(handler)
+logger.propagate = False
+
 sess = requests.Session()
 
 
 def get_html(url: str) -> bs4.BeautifulSoup:
-    print('[*] GET', url, file=sys.stderr)
+    logger.info('[*] GET %s', url)
     resp = sess.get(url)
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
@@ -33,7 +42,7 @@ def get_html(url: str) -> bs4.BeautifulSoup:
 
 
 def get_json(url: str) -> Any:
-    print('[*] GET', url, file=sys.stderr)
+    logger.info(f'[*] GET %s', url)
     resp = sess.get(url)
     resp.raise_for_status()
     time.sleep(0.5)
@@ -139,7 +148,11 @@ def main() -> None:
     parser.add_argument('--access-token-key', default=os.environ.get('TWITTER_ACCESS_TOKEN_KEY'))
     parser.add_argument('--access-token-secret', default=os.environ.get('TWITTER_ACCESS_TOKEN_SECRET'))
     parser.add_argument('--only-abc00x', action='store_true', help='for debug')
+    parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
+
+    if args.verbose:
+        logger.setLevel(DEBUG)
 
     if args.directory is None:
         parser.error('the following arguments are required: --directory')
@@ -169,7 +182,7 @@ def main() -> None:
     latest_submission_ids: Dict[str, int] = {}
     last_status_id: Dict[str, int] = {}
     if os.path.exists(data_json_path):
-        print('[*] load cache from', data_json_path, file=sys.stderr)
+        logger.info('[*] load cache from %s', data_json_path)
         with open(data_json_path) as fh:
             loaded_cache = json.load(fh)
         shortest_codes = loaded_cache['shortest_codes']
@@ -187,7 +200,7 @@ def main() -> None:
         contest_count = len(contests)
 
         for i, contest in enumerate(contests):
-            print('[*]', f'{i + 1}/{contest_count}: {contest.title}', file=sys.stderr)
+            logger.info(f'[*] {i + 1}/{contest_count}: {contest.title}')
             for data in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
                 yield data
 
@@ -206,7 +219,7 @@ def main() -> None:
                 continue
             contest_id = problem['shortest_contest_id']
             contest = Contest(contests_dict[contest_id]['title'], contest_id)
-            print('[*]', f'{i + 1}/{len(merged_problems)}: {contest.title}. {problem["title"]}', file=sys.stderr)
+            logger.info(f'[*] {i + 1}/{len(merged_problems)}: {contest.title}. {problem["title"]}')
 
             if problem['id'] in shortest_codes:
                 if problem['shortest_submission_id'] == shortest_codes[problem['id']]['submission_id']:
@@ -229,9 +242,9 @@ def main() -> None:
         for data in gen:
             in_reply_to_status_id = last_status_id.get(data['problem_id'])
 
-            print('[*]', data['text'], file=sys.stderr)
+            logger.info('[*] %s', data['text'])
             if in_reply_to_status_id is not None:
-                print('[*] in_reply_to_status_id =', in_reply_to_status_id, file=sys.stderr)
+                logger.info('[*] in_reply_to_status_id =%s', in_reply_to_status_id)
 
             # post
             if not args.dry_run and does_post:
@@ -244,7 +257,7 @@ def main() -> None:
     finally:
         # write cache
         if not args.dry_run:
-            print('[*] store cache to', data_json_path, file=sys.stderr)
+            logger.info('[*] store cache to %s', data_json_path)
             dirname = os.path.dirname(data_json_path)
             if dirname and not os.path.exists(dirname):
                 os.makedirs(dirname)
