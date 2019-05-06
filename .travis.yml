@@ -7,10 +7,10 @@ script:
     - isort --check-only --diff main.py
     - yapf --diff main.py | tee yapf.patch && test ! -s yapf.patch
     - mypy main.py
-    - python main.py --load data.json --store data.json --only-abc00x
-    - python main.py --load data.json --store data.json --only-abc00x --use-atcoder-problems
-    - python main.py --load data.json --store data.json --only-abc00x
-    - python main.py --load data.json --store data.json --only-abc00x --use-atcoder-problems
+    - ATGOLFER_DIR=. python main.py --only-abc00x
+    - ATGOLFER_DIR=. python main.py --only-abc00x --use-atcoder-problems
+    - ATGOLFER_DIR=. python main.py --only-abc00x
+    - ATGOLFER_DIR=. python main.py --only-abc00x --use-atcoder-problems
 branches:
     only:
         - master

@@ -132,38 +132,45 @@ def crawl_contest(contest: Contest, shortest_codes: Dict[str, Dict[str, Any]], l
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-atcoder-problems', action='store_true')
-    parser.add_argument('--post', action='store_true')
-    parser.add_argument('--store')
-    parser.add_argument('--load')
-    parser.add_argument('--web-cache')
-    parser.add_argument('--no-store', action='store_const', const=None, dest='store')
-    parser.add_argument('--no-load', action='store_const', const=None, dest='load')
-    parser.add_argument('--consumer-key')
-    parser.add_argument('--consumer-secret')
-    parser.add_argument('--access-token-key')
-    parser.add_argument('--access-token-secret')
+    parser.add_argument('-d', '--directory', default=os.environ.get('ATGOLFER_DIR'))
+    parser.add_argument('-n', '--dry-run', action='store_true')
+    parser.add_argument('--consumer-key', default=os.environ.get('TWITTER_CONSUMER_KEY'))
+    parser.add_argument('--consumer-secret', default=os.environ.get('TWITTER_CONSUMER_SECRET'))
+    parser.add_argument('--access-token-key', default=os.environ.get('TWITTER_ACCESS_TOKEN_KEY'))
+    parser.add_argument('--access-token-secret', default=os.environ.get('TWITTER_ACCESS_TOKEN_SECRET'))
     parser.add_argument('--only-abc00x', action='store_true', help='for debug')
     args = parser.parse_args()
 
+    if args.directory is None:
+        parser.error('the following arguments are required: --directory')
+
     # logging in is postponed
-    if args.post:
-        if not args.consumer_key or not args.consumer_secret or not args.access_token_key or not args.access_token_secret:
-            parser.error('all of --{consumer,access-token}-{key,secret} are required if --post is used')
+    does_post = args.consumer_key or args.consumer_secret or args.access_token_key or args.access_token_secret
+    if does_post:
+        if not args.consumer_key:
+            parser.error('the following arguments are required: --consumer-key')
+        if not args.consumer_secret:
+            parser.error('the following arguments are required: --consumer-secret')
+        if not args.access_token_key:
+            parser.error('the following arguments are required: --access-token-key')
+        if not args.access_token_secret:
+            parser.error('the following arguments are required: --access-token-secret')
         api = None
 
     # set web cache
-    if args.web_cache:
-        global sess
-        web_cache = cachecontrol.caches.file_cache.FileCache(args.web_cache, forever=True)
-        sess = cachecontrol.CacheControl(sess, cache=web_cache)
+    global sess
+    web_cache_path = os.path.join(args.directory, 'web_cache')
+    web_cache = cachecontrol.caches.file_cache.FileCache(web_cache_path, forever=True)
+    sess = cachecontrol.CacheControl(sess, cache=web_cache)
 
     # load cache
+    data_json_path = os.path.join(args.directory, 'data.json')
     shortest_codes: Dict[str, Dict[str, Any]] = {}
     latest_submission_ids: Dict[str, int] = {}
     last_status_id: Dict[str, int] = {}
-    if args.load is not None and os.path.exists(args.load):
-        print('[*] load cache from', args.store, file=sys.stderr)
-        with open(args.load) as fh:
+    if os.path.exists(data_json_path):
+        print('[*] load cache from', data_json_path, file=sys.stderr)
+        with open(data_json_path) as fh:
             loaded_cache = json.load(fh)
         shortest_codes = loaded_cache['shortest_codes']
         latest_submission_ids = loaded_cache['latest_submission_ids']
@@ -227,7 +234,7 @@ def main() -> None:
                 print('[*] in_reply_to_status_id =', in_reply_to_status_id, file=sys.stderr)
 
             # post
-            if args.post:
+            if not args.dry_run and does_post:
                 if api is None:
                     api = twitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token_key=args.access_token_key, access_token_secret=args.access_token_secret, sleep_on_rate_limit=True)
                 status = api.PostUpdate(data['text'], in_reply_to_status_id=in_reply_to_status_id)
@@ -236,9 +243,9 @@ def main() -> None:
 
     finally:
         # write cache
-        if args.store is not None:
-            print('[*] store cache to', args.store, file=sys.stderr)
-            dirname = os.path.dirname(args.store)
+        if not args.dry_run:
+            print('[*] store cache to', data_json_path, file=sys.stderr)
+            dirname = os.path.dirname(data_json_path)
             if dirname and not os.path.exists(dirname):
                 os.makedirs(dirname)
             stored_cache = {
@@ -246,7 +253,7 @@ def main() -> None:
                 'latest_submission_ids': latest_submission_ids,
                 'last_status_id': last_status_id,
             }
-            with open(args.store, 'w') as fh:
+            with open(data_json_path, 'w') as fh:
                 json.dump(stored_cache, fh)
 
 
