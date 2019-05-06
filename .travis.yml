@@ -2,8 +2,7 @@ language: python
 python:
     - 3.6
 install:
-    - pip install -r requirements.txt
-    - pip install isort mypy yapf
+    - pip install -e .[dev]
 script:
     - isort --check-only --diff main.py
     - yapf --diff main.py | tee yapf.patch && test ! -s yapf.patch
