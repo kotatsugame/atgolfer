@@ -33,7 +33,7 @@ sess = requests.Session()
 
 
 def get_html(url: str) -> bs4.BeautifulSoup:
-    logger.info('[*] GET %s', url)
+    logger.debug('[*] GET %s', url)
     resp = sess.get(url)
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
@@ -42,7 +42,7 @@ def get_html(url: str) -> bs4.BeautifulSoup:
 
 
 def get_json(url: str) -> Any:
-    logger.info(f'[*] GET %s', url)
+    logger.debug(f'[*] GET %s', url)
     resp = sess.get(url)
     resp.raise_for_status()
     time.sleep(0.5)
@@ -184,15 +184,15 @@ def main() -> None:
     latest_submission_ids_json_path = os.path.join(args.directory, 'latest_submission_ids.json')
     last_status_id_json_path = os.path.join(args.directory, 'last_status_id.json')
     if os.path.exists(shortest_codes_json_path):
-        logger.info('[*] load cache from %s', shortest_codes_json_path)
+        logger.debug('[*] load cache from %s', shortest_codes_json_path)
         with open(shortest_codes_json_path) as fh:
             shortest_codes = json.load(fh)
     if os.path.exists(latest_submission_ids_json_path):
-        logger.info('[*] load cache from %s', latest_submission_ids_json_path)
+        logger.debug('[*] load cache from %s', latest_submission_ids_json_path)
         with open(latest_submission_ids_json_path) as fh:
             latest_submission_ids = json.load(fh)
     if os.path.exists(last_status_id_json_path):
-        logger.info('[*] load cache from %s', last_status_id_json_path)
+        logger.debug('[*] load cache from %s', last_status_id_json_path)
         with open(last_status_id_json_path) as fh:
             last_status_id = json.load(fh)
 
@@ -207,7 +207,7 @@ def main() -> None:
         contest_count = len(contests)
 
         for i, contest in enumerate(contests):
-            logger.info(f'[*] {i + 1}/{contest_count}: {contest.title}')
+            logger.debug(f'[*] {i + 1}/{contest_count}: {contest.title}')
             for data in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
                 yield data
 
@@ -226,7 +226,7 @@ def main() -> None:
                 continue
             contest_id = problem['shortest_contest_id']
             contest = Contest(contests_dict[contest_id]['title'], contest_id)
-            logger.info(f'[*] {i + 1}/{len(merged_problems)}: {contest.title}. {problem["title"]}')
+            logger.debug(f'[*] {i + 1}/{len(merged_problems)}: {contest.title}. {problem["title"]}')
 
             if problem['id'] in shortest_codes:
                 if problem['shortest_submission_id'] == shortest_codes[problem['id']]['submission_id']:
@@ -249,17 +249,19 @@ def main() -> None:
         for data in gen:
             in_reply_to_status_id = last_status_id.get(data['problem_id'])
 
-            logger.info('[*] %s', data['text'])
+            logger.debug('[*] %s', data['text'])
             if in_reply_to_status_id is not None:
-                logger.info('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
+                logger.debug('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
 
             # post
             if not args.dry_run and does_post:
+                logger.info('[*] post:\n%s', data['text'])
                 if api is None:
                     api = twitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token_key=args.access_token_key, access_token_secret=args.access_token_secret, sleep_on_rate_limit=True)
                 status = api.PostUpdate(data['text'], in_reply_to_status_id=in_reply_to_status_id)
                 last_status_id[data['problem_id']] = status.id
-                logger.info('[*] sleep 60 seconds...')
+                logger.info('[*] done: https://twitter.com/-/status/%s', status.id)
+                logger.debug('[*] sleep 60 seconds...')
                 time.sleep(60)
 
     finally:
@@ -267,13 +269,13 @@ def main() -> None:
         if not args.dry_run:
             if not os.path.exists(args.directory):
                 os.makedirs(args.directory)
-            logger.info('[*] store cache to %s', shortest_codes_json_path)
+            logger.debug('[*] store cache to %s', shortest_codes_json_path)
             with open(shortest_codes_json_path, 'w') as fh:
                 json.dump(shortest_codes, fh)
-            logger.info('[*] store cache to %s', latest_submission_ids_json_path)
+            logger.debug('[*] store cache to %s', latest_submission_ids_json_path)
             with open(latest_submission_ids_json_path, 'w') as fh:
                 json.dump(latest_submission_ids, fh)
-            logger.info('[*] store cache to %s', last_status_id_json_path)
+            logger.debug('[*] store cache to %s', last_status_id_json_path)
             with open(last_status_id_json_path, 'w') as fh:
                 json.dump(last_status_id, fh)
 
