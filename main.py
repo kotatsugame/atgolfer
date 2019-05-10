@@ -143,6 +143,7 @@ def main() -> None:
     parser.add_argument('--use-atcoder-problems', action='store_true')
     parser.add_argument('-d', '--directory', default=os.environ.get('ATGOLFER_DIR'))
     parser.add_argument('-n', '--dry-run', action='store_true')
+    parser.add_argument('--post', action='store_true')
     parser.add_argument('--consumer-key', default=os.environ.get('TWITTER_CONSUMER_KEY'))
     parser.add_argument('--consumer-secret', default=os.environ.get('TWITTER_CONSUMER_SECRET'))
     parser.add_argument('--access-token-key', default=os.environ.get('TWITTER_ACCESS_TOKEN_KEY'))
@@ -158,8 +159,7 @@ def main() -> None:
         parser.error('the following arguments are required: --directory')
 
     # logging in is postponed
-    does_post = args.consumer_key or args.consumer_secret or args.access_token_key or args.access_token_secret
-    if does_post:
+    if args.post:
         if not args.consumer_key:
             parser.error('the following arguments are required: --consumer-key')
         if not args.consumer_secret:
@@ -245,7 +245,7 @@ def main() -> None:
         logger.info('[*] post:\n%s', text)
         if in_reply_to_status_id is not None:
             logger.debug('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
-        if args.dry_run or not does_post:
+        if args.dry_run or not args.post:
             logger.info('[*] ignored.')
             return
         if api is None:
