@@ -6,7 +6,7 @@ import json
 import os.path
 import sys
 import time
-from logging import DEBUG, StreamHandler, getLogger
+from logging import DEBUG, WARNING, StreamHandler, getLogger
 from typing import *
 
 import bs4
@@ -151,8 +151,8 @@ def main() -> None:
     parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
 
-    if args.verbose:
-        logger.setLevel(DEBUG)
+    if not args.verbose:
+        logger.setLevel(WARNING)
 
     if args.directory is None:
         parser.error('the following arguments are required: --directory')
