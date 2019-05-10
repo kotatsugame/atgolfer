@@ -240,6 +240,21 @@ def main() -> None:
                 for data in crawl_contest(contest, shortest_codes=shortest_codes, latest_submission_ids=latest_submission_ids):
                     yield data
 
+    def post_text(text: str, in_reply_to_status_id: Optional[int] = None):
+        logger.info('[*] post:\n%s', text)
+        if in_reply_to_status_id is not None:
+            logger.debug('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
+        if args.dry_run or not does_post:
+            logger.info('[*] ignored.')
+            return
+        if api is None:
+            api = twitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token_key=args.access_token_key, access_token_secret=args.access_token_secret, sleep_on_rate_limit=True)
+        status = api.PostUpdate(text, in_reply_to_status_id=in_reply_to_status_id)
+        last_status_id[data['problem_id']] = status.id
+        logger.info('[*] done: https://twitter.com/-/status/%s', status.id)
+        logger.debug('[*] sleep 60 seconds...')
+        time.sleep(60)
+
     # get data
     try:
         if args.use_atcoder_problems:
@@ -247,22 +262,12 @@ def main() -> None:
         else:
             gen = read_atcoder()
         for data in gen:
-            in_reply_to_status_id = last_status_id.get(data['problem_id'])
+            post_text(data['text'], in_reply_to_status_id=last_status_id.get(data['problem_id']))
 
-            logger.debug('[*] %s', data['text'])
-            if in_reply_to_status_id is not None:
-                logger.debug('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
-
-            # post
-            if not args.dry_run and does_post:
-                logger.info('[*] post:\n%s', data['text'])
-                if api is None:
-                    api = twitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token_key=args.access_token_key, access_token_secret=args.access_token_secret, sleep_on_rate_limit=True)
-                status = api.PostUpdate(data['text'], in_reply_to_status_id=in_reply_to_status_id)
-                last_status_id[data['problem_id']] = status.id
-                logger.info('[*] done: https://twitter.com/-/status/%s', status.id)
-                logger.debug('[*] sleep 60 seconds...')
-                time.sleep(60)
+    except Exception as e:
+        assert not isinstance(e, KeyboardInterrupt)
+        post_text(e.__class__.__name__)
+        raise e
 
     finally:
         # write cache
