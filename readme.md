@@ -1,15 +1,9 @@
 # AtGolfer
 
+[![Travis.org](https://img.shields.io/travis/kmyk/atgolfer.svg)](https://travis-ci.org/kmyk/atgolfer)
+![License](https://img.shields.io/github/license/kmyk/atgolfer.svg)
+[![Twitter Follow](https://img.shields.io/twitter/follow/atgolfer1.svg?style=social)](https://twitter.com/intent/follow?screen_name=atgolfer1)
+
 AtCoder上でのcode golfの記録更新を報告するTwitter botです
 
 <https://twitter.com/atgolfer1>
-
-## license
-
-MIT
-
-## なぜか生えてたF#実装
-
-<https://github.com/cannorin/atgolfer-fs>
-
-[https://github.com/kmyk/atgolfer/tree/dc3db08491a37778b2e85ef2274dc9547e3f1c97](https://github.com/kmyk/atgolfer/tree/dc3db08491a37778b2e85ef2274dc9547e3f1c97)時あたりのもの
