@@ -251,7 +251,7 @@ def main() -> None:
 
             logger.info('[*] %s', data['text'])
             if in_reply_to_status_id is not None:
-                logger.info('[*] in_reply_to_status_id =%s', in_reply_to_status_id)
+                logger.info('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
 
             # post
             if not args.dry_run and does_post:
