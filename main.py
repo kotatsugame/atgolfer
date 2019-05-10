@@ -241,6 +241,7 @@ def main() -> None:
                     yield data
 
     def post_text(text: str, in_reply_to_status_id: Optional[int] = None):
+        nonlocal api
         logger.info('[*] post:\n%s', text)
         if in_reply_to_status_id is not None:
             logger.debug('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
