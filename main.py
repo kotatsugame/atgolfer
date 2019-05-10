@@ -259,7 +259,8 @@ def main() -> None:
                     api = twitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token_key=args.access_token_key, access_token_secret=args.access_token_secret, sleep_on_rate_limit=True)
                 status = api.PostUpdate(data['text'], in_reply_to_status_id=in_reply_to_status_id)
                 last_status_id[data['problem_id']] = status.id
-                time.sleep(3)
+                logger.info('[*] sleep 60 seconds...')
+                time.sleep(60)
 
     finally:
         # write cache
