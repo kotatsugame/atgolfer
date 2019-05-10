@@ -266,7 +266,7 @@ def main() -> None:
 
     except Exception as e:
         assert not isinstance(e, KeyboardInterrupt)
-        post_text(e.__class__.__name__)
+        # post_text(e.__class__.__name__)
         raise e
 
     finally:
