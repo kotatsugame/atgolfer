@@ -213,8 +213,8 @@ def main() -> None:
 
     # get data from AtCoder Problems
     def read_atcoder_problems() -> Iterator[Dict[str, str]]:
-        contests: List[Dict[str, Any]] = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/contests')
-        merged_problems: List[Dict[str, Any]] = get_json('https://kenkoooo.com/atcoder/atcoder-api/info/merged-problems')
+        contests: List[Dict[str, Any]] = get_json('https://kenkoooo.com/atcoder/resources/contests.json')
+        merged_problems: List[Dict[str, Any]] = get_json('https://kenkoooo.com/atcoder/resources/merged-problems.json')
         if args.only_abc00x:
             contests = [contest for contest in contests if contest['id'].startswith('abc00')]
             merged_problems = [problem for problem in merged_problems if (problem['shortest_contest_id'] or '').startswith('abc00')]
