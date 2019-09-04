@@ -243,6 +243,14 @@ def main() -> None:
     def post_text(text: str, in_reply_to_status_id: Optional[int] = None):
         nonlocal api
         logger.info('[*] post:\n%s', text)
+        if twitter.twitter_utils.calc_expected_status_length(text) > twitter.api.CHARACTER_LIMIT:
+            a = text[:len(text) * 2 // 5]
+            b = text[len(text) // 2:]
+            while twitter.twitter_utils.calc_expected_status_length(a + ' (省略) ' + b) > twitter.api.CHARACTER_LIMIT:
+                a = a[:len(a) * 4 // 5]
+                b = a[len(a) // 5:]
+            text = a + ' (省略) ' + b
+            logger.info('[*] post:\n%s', text)
         if in_reply_to_status_id is not None:
             logger.debug('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
         if args.dry_run or not args.post:
