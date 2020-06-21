@@ -4,9 +4,7 @@
 ![License](https://img.shields.io/github/license/kmyk/atgolfer.svg)
 [![Twitter Follow](https://img.shields.io/twitter/follow/atgolfer1.svg?style=social)](https://twitter.com/intent/follow?screen_name=atgolfer1)
 
-AtCoder上でのcode golfの記録更新を報告するTwitter botです
-
-<https://twitter.com/atgolfer1>
+このリポジトリには、AtCoder 上でのコードゴルフの記録更新を報告する Twitter bot [@atgolfer1](https://twitter.com/atgolfer1) のスクリプトが置かれています。
 
 ## 動かし方
 
@@ -49,13 +47,13 @@ $ python3 main.py --verbose --directory=./ --use-atcoder-problems --only-abc00x
 [*] store cache to ./last_status_id.json
 ```
 
-### Twitter Bot を運用する
+### Twitter bot を運用する
 
-Twitter Bot [@atgolfer1](https://twitter.com/atgolfer1) を運用するには、Bot のための Twitter のアカウントと、5 分おきぐらいにスクリプトを実行してくれるような実行環境が必要です。
+Twitter bot [@atgolfer1](https://twitter.com/atgolfer1) を運用するには、bot のための Twitter のアカウントと、5 分おきぐらいにスクリプトを実行してくれるような実行環境が必要です。
 具体的には以下が必要となります。
 
-1.  Twitter Bot 用のアカウントを作る
-1.  Twitter Bot を自動で操作するための認証情報を得る
+1.  Twitter bot 用のアカウントを作る
+1.  Twitter bot を自動で操作するための認証情報を得る
 1.  スクリプトを実行するためのサーバを借りる
 1.  そのサーバ上でスクリプトが自動実行され Twitter に投稿されるように設定をする
 
@@ -82,7 +80,8 @@ $ crontab -l
 
 注意点:
 
--   Twitter Bot は何もしていなくても「不審な挙動が……」などとアカウントが凍結されたりしがちなので注意する
+-   いきなり `--post` を付けて実行するとすべての問題についてツイートがされてしまうので、まずは `--post` なしで実行するようにする
+-   Twitter bot は何もしていなくても「不審な挙動が……」などとアカウントが凍結されたりしがちなので注意する
 -   `TWITTER_ACCESS_TOKEN_SECRET` とかは実質パスワードなので漏らさないように注意する
 -   AtCoder から直接スクレイピングすると遅いが、AtCoder Problems を使うとデータの取りこぼしがあるので、両方を使うようにする
 -   AtCoder や AtCoder Problems はメンテや負荷などでたまに落ちるので注意する
