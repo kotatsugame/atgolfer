@@ -15,10 +15,7 @@ $ git clone https://github.com/kmyk/atgolfer
 
 $ cd atgolfer
 
-$ pip3 install beautifulsoup4
-$ pip3 install CacheControl
-$ pip3 install python-twitter
-$ pip3 install requests
+$ pip3 install -e .
 
 $ python3 main.py --verbose --directory=./ --use-atcoder-problems --only-abc00x
 [*] load cache from ./shortest_codes.json
