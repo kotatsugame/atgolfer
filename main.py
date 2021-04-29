@@ -50,9 +50,11 @@ def get_json(url: str) -> Any:
 
 
 def get_contests(limit: Optional[int] = None) -> List[Contest]:
+    contests = []
+
+    # archived contests
     url = 'https://atcoder.jp/contests/archive?lang=ja'
     finalpage = int(get_html(url).find('ul', class_='pagination').find_all('li')[-1].text)
-    contests = []
     for i in range(1, finalpage + 1):
         tbody = get_html(f'{url}&page={i}').find('tbody')
         for tr in tbody.find_all('tr'):
@@ -63,6 +65,27 @@ def get_contests(limit: Optional[int] = None) -> List[Contest]:
             contests.append(Contest(title=a.text, id=contest_id))
             if limit is not None and len(contests) >= limit:
                 return contests
+
+    # permanent contests
+    tbody = get_html('https://atcoder.jp/contests/?lang=ja').find('div', id='contest-table-permanent').find('tbody')
+    for tr in tbody.find_all('tr'):
+        a = tr.find('a')
+        contest_path = a['href']
+        assert contest_path.startswith('/contests/')
+        contest_id = contest_path[len('/contests/'):]
+        contests.append(Contest(title=a.text, id=contest_id))
+        if limit is not None and len(contests) >= limit:
+            return contests
+
+    # hidden contests
+    # list : https://github.com/kenkoooo/AtCoderProblems/blob/master/atcoder-problems-frontend/public/static_data/backend/hidden_contests.json
+    # updated : 2021/04/29
+    for contest_id in ['ukuku09', 'summerfes2018-div1', 'summerfes2018-div2', 'monamieHB2021']:
+        contest_title = get_html(f'https://atcoder.jp/contests/{contest_id}').find('h1').text
+        contests.append(Contest(title=contest_title, id=contest_id))
+        if limit is not None and len(contests) >= limit:
+            return contests
+
     return contests
 
 
