@@ -79,7 +79,7 @@ def get_contests(limit: Optional[int] = None) -> List[Contest]:
 
     # hidden contests
     # list : https://github.com/kenkoooo/AtCoderProblems/blob/master/atcoder-problems-frontend/public/static_data/backend/hidden_contests.json
-    # updated : 2021/04/29
+    # update at : 2021/04/29
     for contest_id in ['ukuku09', 'summerfes2018-div1', 'summerfes2018-div2', 'monamieHB2021']:
         contest_title = get_html(f'https://atcoder.jp/contests/{contest_id}').find('h1').text
         contests.append(Contest(title=contest_title, id=contest_id))
