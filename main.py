@@ -31,6 +31,10 @@ logger.propagate = False
 
 sess = requests.Session()
 
+# list : https://github.com/kenkoooo/AtCoderProblems/blob/master/atcoder-problems-frontend/public/static_data/backend/hidden_contests.json
+# update at : 2021/04/29
+hidden_contests = ['ukuku09', 'summerfes2018-div1', 'summerfes2018-div2', 'monamieHB2021']
+
 
 def get_html(url: str) -> bs4.BeautifulSoup:
     logger.debug('[*] GET %s', url)
@@ -78,9 +82,7 @@ def get_contests(limit: Optional[int] = None) -> List[Contest]:
             return contests
 
     # hidden contests
-    # list : https://github.com/kenkoooo/AtCoderProblems/blob/master/atcoder-problems-frontend/public/static_data/backend/hidden_contests.json
-    # update at : 2021/04/29
-    for contest_id in ['ukuku09', 'summerfes2018-div1', 'summerfes2018-div2', 'monamieHB2021']:
+    for contest_id in hidden_contests:
         contest_title = get_html(f'https://atcoder.jp/contests/{contest_id}').find('h1').text
         contests.append(Contest(title=contest_title, id=contest_id))
         if limit is not None and len(contests) >= limit:
