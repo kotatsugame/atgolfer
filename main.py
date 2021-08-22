@@ -33,7 +33,7 @@ sess = requests.Session()
 
 # list : https://github.com/kenkoooo/AtCoderProblems/blob/master/atcoder-problems-frontend/public/static_data/backend/hidden_contests.json
 # update at : 2021/04/29
-hidden_contests = ['ukuku09', 'summerfes2018-div1', 'summerfes2018-div2', 'monamieHB2021']
+hidden_contests = ['ukuku09', 'summerfes2018-div1', 'summerfes2018-div2', 'monamieHB2021', 'tkppc6-1']
 
 
 def get_html(url: str) -> bs4.BeautifulSoup:
