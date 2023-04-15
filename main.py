@@ -14,6 +14,7 @@ import cachecontrol
 import cachecontrol.caches.file_cache
 import requests
 import twitter
+import pytwitter
 
 
 class Contest(NamedTuple):
@@ -268,6 +269,7 @@ def main() -> None:
     def post_text(text: str, in_reply_to_status_id: Optional[int] = None):
         nonlocal api
         logger.info('[*] post:\n%s', text)
+        exclude_reply_user_ids = None
         if twitter.twitter_utils.calc_expected_status_length(text) > twitter.api.CHARACTER_LIMIT:
             a = text[:len(text) * 2 // 5]
             b = text[len(text) // 2:]
@@ -278,13 +280,15 @@ def main() -> None:
             logger.info('[*] post:\n%s', text)
         if in_reply_to_status_id is not None:
             logger.debug('[*] in_reply_to_status_id = %s', in_reply_to_status_id)
+            in_reply_to_status_id = str(in_reply_to_status_id)
+            exclude_reply_user_ids = []
         if args.dry_run or not args.post:
             logger.info('[*] ignored.')
             return
         if api is None:
-            api = twitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token_key=args.access_token_key, access_token_secret=args.access_token_secret, sleep_on_rate_limit=True)
-        status = api.PostUpdate(text, in_reply_to_status_id=in_reply_to_status_id)
-        last_status_id[data['problem_id']] = status.id
+            api = pytwitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token=args.access_token_key, access_secret=args.access_token_secret, sleep_on_rate_limit=True)
+        status = api.create_tweet(text=text, reply_exclude_reply_user_ids=exclude_reply_user_ids, reply_in_reply_to_tweet_id=in_reply_to_status_id)
+        last_status_id[data['problem_id']] = int(status.id)
         logger.info('[*] done: https://twitter.com/-/status/%s', status.id)
         logger.debug('[*] sleep 60 seconds...')
         time.sleep(60)
