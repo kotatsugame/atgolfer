@@ -1,9 +1,10 @@
 # Python Version: 3.x
 import argparse
 import datetime
+import dotenv
 import itertools
 import json
-import os.path
+import os
 import sys
 import time
 from logging import DEBUG, WARNING, StreamHandler, getLogger
@@ -17,6 +18,17 @@ import twitter
 import pytwitter
 
 
+# ID/PASS
+dotenv.load_dotenv()
+TWITTER_CONSUMER_KEY = os.getenv('TWITTER_CONSUMER_KEY')
+TWITTER_CONSUMER_SECRET = os.getenv('TWITTER_CONSUMER_SECRET')
+TWITTER_ACCESS_TOKEN = os.getenv('TWITTER_ACCESS_TOKEN')
+TWITTER_ACCESS_SECRET = os.getenv('TWITTER_ACCESS_SECRET')
+ATCODER_ID = os.getenv('ATCODER_ID')
+ATCODER_PASSWORD = os.getenv('ATCODER_PASSWORD')
+
+
+# contest class
 class Contest(NamedTuple):
     title: str
     id: str
@@ -30,8 +42,13 @@ logger.setLevel(DEBUG)
 logger.addHandler(handler)
 logger.propagate = False
 
-sess = requests.Session()
 
+# requests
+sess = requests.Session()
+NUM_RETRIES = 3 # number of retries
+
+
+# hidden contests
 # list : https://github.com/kenkoooo/AtCoderProblems/blob/master/atcoder-problems-frontend/public/static_data/backend/hidden_contests.json
 # update at : 2021/04/29
 hidden_contests = ['ukuku09', 'summerfes2018-div1', 'summerfes2018-div2', 'monamieHB2021', 'tkppc6-1', 'genocon2021']
@@ -42,7 +59,7 @@ def get_html(url: str) -> bs4.BeautifulSoup:
     resp = sess.get(url)
     resp.raise_for_status()
     soup = bs4.BeautifulSoup(resp.content, 'lxml')
-    time.sleep(0.5)
+    time.sleep(1)
     return soup
 
 
@@ -50,7 +67,7 @@ def get_json(url: str) -> Any:
     logger.debug(f'[*] GET %s', url)
     resp = sess.get(url)
     resp.raise_for_status()
-    time.sleep(0.5)
+    time.sleep(1)
     return json.loads(resp.content)
 
 
@@ -116,14 +133,30 @@ def crawl_contest(contest: Contest, shortest_codes: Dict[str, Dict[str, Any]], l
             return  # no new submissions
 
     # read submissions of tasks
+    success_to_read = True
     if (not (contest.id in latest_submission_ids)) or (int(newer_submission_id) > int(latest_submission_ids[contest.id])):
         submission_trs = []
         tasks = soup.find('select', id='select-task').find_all('option')[1:]
         for task in tasks:
             task_id = task['value']
-            # NOTE: this query shows submissions with the same length in the ascending order of time
-            query = f'f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length'
-            tbody = get_html(f'{url}?{query}').find('tbody')
+            for _ in range(NUM_RETRIES):
+                try:
+                    # NOTE: this query shows submissions with the same length in the ascending order of time
+                    query = f'f.Language=&f.Status=AC&f.Task={task_id}&f.User=&orderBy=source_length'
+                    soup = get_html(f'{url}?{query}')
+                    if soup is not None:
+                        break
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 500:
+                        # orderBy=source_length is too heavy
+                        time.sleep(5)
+                    else:
+                        raise e
+            else:
+                logger.error(f'[*] failed to read from {contest.id}/{task_id}')
+                success_to_read = False
+                continue
+            tbody = soup.find('tbody')
             if not tbody:
                 continue
             submission_trs.append(tbody.find('tr'))
@@ -161,7 +194,8 @@ def crawl_contest(contest: Contest, shortest_codes: Dict[str, Dict[str, Any]], l
         shortest_codes[task_id]['user'] = new_user
 
     # NOTE: also this update must be here
-    latest_submission_ids[contest.id] = latest_submission_id
+    if success_to_read:
+        latest_submission_ids[contest.id] = latest_submission_id
 
 
 def main() -> None:
@@ -170,10 +204,6 @@ def main() -> None:
     parser.add_argument('-d', '--directory', default=os.environ.get('ATGOLFER_DIR'))
     parser.add_argument('-n', '--dry-run', action='store_true')
     parser.add_argument('--post', action='store_true')
-    parser.add_argument('--consumer-key', default=os.environ.get('TWITTER_CONSUMER_KEY'))
-    parser.add_argument('--consumer-secret', default=os.environ.get('TWITTER_CONSUMER_SECRET'))
-    parser.add_argument('--access-token-key', default=os.environ.get('TWITTER_ACCESS_TOKEN_KEY'))
-    parser.add_argument('--access-token-secret', default=os.environ.get('TWITTER_ACCESS_TOKEN_SECRET'))
     parser.add_argument('--only-abc00x', action='store_true', help='for debug')
     parser.add_argument('-v', '--verbose', action='store_true')
     args = parser.parse_args()
@@ -184,16 +214,12 @@ def main() -> None:
     if args.directory is None:
         parser.error('the following arguments are required: --directory')
 
-    # logging in is postponed
+    # logging in to twitter is postponed
     if args.post:
-        if not args.consumer_key:
-            parser.error('the following arguments are required: --consumer-key')
-        if not args.consumer_secret:
-            parser.error('the following arguments are required: --consumer-secret')
-        if not args.access_token_key:
-            parser.error('the following arguments are required: --access-token-key')
-        if not args.access_token_secret:
-            parser.error('the following arguments are required: --access-token-secret')
+        assert TWITTER_CONSUMER_KEY is not None
+        assert TWITTER_CONSUMER_SECRET is not None
+        assert TWITTER_ACCESS_TOKEN is not None
+        assert TWITTER_ACCESS_SECRET is not None
         api = None
 
     # set web cache
@@ -201,6 +227,14 @@ def main() -> None:
     web_cache_path = os.path.join(args.directory, 'web_cache')
     web_cache = cachecontrol.caches.file_cache.FileCache(web_cache_path, forever=True)
     sess = cachecontrol.CacheControl(sess, cache=web_cache)
+
+    # login
+    assert ATCODER_ID is not None
+    assert ATCODER_PASSWORD is not None
+    csrf_token = get_html('https://atcoder.jp/login').find(name='input', attrs={'name': 'csrf_token'})['value']
+    logger.info('[*] log in to atcoder')
+    resp = sess.post('https://atcoder.jp/login', {'username': ATCODER_ID, 'password': ATCODER_PASSWORD, 'csrf_token': csrf_token})
+    logger.debug('[*] login info : %s', str(resp))
 
     # load cache
     shortest_codes: Dict[str, Dict[str, Any]] = {}
@@ -286,7 +320,7 @@ def main() -> None:
             logger.info('[*] ignored.')
             return
         if api is None:
-            api = pytwitter.Api(consumer_key=args.consumer_key, consumer_secret=args.consumer_secret, access_token=args.access_token_key, access_secret=args.access_token_secret, sleep_on_rate_limit=True)
+            api = pytwitter.Api(consumer_key=TWITTER_CONSUMER_KEY, consumer_secret=TWITTER_CONSUMER_SECRET, access_token=TWITTER_ACCESS_TOKEN, access_secret=TWITTER_ACCESS_SECRET, sleep_on_rate_limit=True)
         status = api.create_tweet(text=text, reply_exclude_reply_user_ids=exclude_reply_user_ids, reply_in_reply_to_tweet_id=in_reply_to_status_id)
         last_status_id[data['problem_id']] = int(status.id)
         logger.info('[*] done: https://twitter.com/-/status/%s', status.id)
