@@ -17,6 +17,10 @@ $ cd atgolfer
 
 $ pip3 install -e .
 
+$ cp .env.tmp .env
+
+$ # set ATCODER_ID and ATCODER_PASSWORD to .env
+
 $ python3 main.py --verbose --directory=./ --use-atcoder-problems --only-abc00x
 [*] load cache from ./shortest_codes.json
 [*] load cache from ./latest_submission_ids.json
@@ -55,15 +59,10 @@ Twitter bot [@atgolfer1](https://twitter.com/atgolfer1) を運用するには、
 1.  そのサーバ上でスクリプトが自動実行され Twitter に投稿されるように設定をする
 
 Twitter のアカウントは普通に作って、認証情報はいい感じにしてください。
-認証情報をスクリプトに伝えるには環境変数を経由してください。たとえば以下のようにします。
+4 つの認証情報が必要です。これらは `.env` に記載してください。
 
 ``` console
-$ env \
-    TWITTER_CONSUMER_KEY=... \
-    TWITTER_CONSUMER_SECRET=... \
-    TWITTER_ACCESS_TOKEN_KEY=... \
-    TWITTER_ACCESS_TOKEN_SECRET=... \
-    python3 main.py --post ...
+$ python3 main.py --post ...
 ```
 
 サーバについては、性能は求められないのでなんでもいいから VPS (例: [VPS（仮想専用サーバー）｜さくらインターネット](https://vps.sakura.ad.jp/) の一番安いやつやその次に安いやつ) を借り、[crontab](https://ja.wikipedia.org/wiki/Crontab) に以下のような設定をするのがよいでしょう。
@@ -71,8 +70,8 @@ $ env \
 ``` console
 $ crontab -l
 #                   m h dom mon dow   command
-0,5,10,25,30,35,40,55 *   *   *   *   /usr/bin/env TWITTER_CONSUMER_KEY=... TWITTER_CONSUMER_SECRET=... TWITTER_ACCESS_TOKEN_KEY=... TWITTER_ACCESS_TOKEN_SECRET=... python3 /home/ubuntu/atgolfer/main.py --directory /home/ubuntu/atgolfer --post --use-atcoder-problems
-15,45                 *   *   *   *   /usr/bin/env TWITTER_CONSUMER_KEY=... TWITTER_CONSUMER_SECRET=... TWITTER_ACCESS_TOKEN_KEY=... TWITTER_ACCESS_TOKEN_SECRET=... python3 /home/ubuntu/atgolfer/main.py --directory /home/ubuntu/atgolfer --post
+0,5,10,25,30,35,40,55 *   *   *   *   flock -n /home/ubuntu/atgolfer/lock python3 /home/ubuntu/atgolfer/main.py --directory /home/ubuntu/atgolfer --post --use-atcoder-problems
+15,45                 *   *   *   *   flock -n /home/ubuntu/atgolfer/lock python3 /home/ubuntu/atgolfer/main.py --directory /home/ubuntu/atgolfer --post
 ```
 
 注意点:
