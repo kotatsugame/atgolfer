@@ -184,11 +184,12 @@ def crawl_contest(contest: Contest, shortest_codes: Dict[str, Dict[str, Any]], l
                 continue
         else:
             text = f'{new_user} さんがショートコードを打ち立てました！ ({new_size} Byte)'
-            shortest_codes[task_id] = {}
         text = '\n'.join([f'{contest.title}: {problem_title}', text, f'{url}/{new_submission_id}'])
         yield {'text': text, 'problem_id': task_id}
 
         # NOTE: update shortest_codes after yielding; this is for cases when it fails to tweet and an exception is thrown
+        if task_id not in shortest_codes:
+            shortest_codes[task_id] = {}
         shortest_codes[task_id]['size'] = new_size
         shortest_codes[task_id]['submission_id'] = new_submission_id
         shortest_codes[task_id]['user'] = new_user
