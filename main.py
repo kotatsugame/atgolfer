@@ -126,8 +126,16 @@ def crawl_contest(contest: Contest, shortest_codes: Dict[str, Dict[str, Any]], l
     tbody = soup.find('tbody')
     assert tbody
     submission_trs = tbody.find_all('tr')
-    latest_submission_id = int(submission_trs[0].find_all('td')[4]['data-id'])
-    newer_submission_id = int(submission_trs[-1].find_all('td')[4]['data-id'])
+
+    offset = 0
+    try:
+        latest_submission_id = int(submission_trs[0].find_all('td')[offset + 4]['data-id'])
+    except KeyError:
+        # using account has administrative rights to this contest
+        offset = 1
+        latest_submission_id = int(submission_trs[0].find_all('td')[offset + 4]['data-id'])
+
+    newer_submission_id = int(submission_trs[-1].find_all('td')[offset + 4]['data-id'])
     if contest.id in latest_submission_ids:
         if latest_submission_id == latest_submission_ids[contest.id]:
             return  # no new submissions
@@ -163,7 +171,7 @@ def crawl_contest(contest: Contest, shortest_codes: Dict[str, Dict[str, Any]], l
 
     # check the shortest submissions
     for tr in submission_trs:
-        tds = tr.find_all('td')
+        tds = tr.find_all('td')[offset:]
         if tds[6].find('span').text != 'AC':
             continue
         problem_title = tds[1].find('a').text
