@@ -83,3 +83,10 @@ $ crontab -l
 -   AtCoder や AtCoder Problems はメンテや負荷などでたまに落ちるので注意する
 -   実行が遅くてスクリプトが重複起動してしまうと壊れるので [flock](https://linuxjm.osdn.jp/html/util-linux/man1/flock.1.html) などを活用する
 -   データを貯めているファイルに書き込み中にエラーなどで落ちるとデータが消えるので諦めるかコードを修正する
+
+# Twitter API の設定
+
+1. API を使用したいアカウントにログインした状態で Twitter の Developer Portal にアクセスする
+1. App を作る。このとき表示される `API key` と `API key secret` をメモする→`TWITTER_CONSUMER_KEY` と `TWITTER_CONSUMER_SECRET` になる
+1. User authentication のセットアップをする。権限は Read and Write で、callback URL は `https://twitter.com` 等にしておけばよい
+1. Keys and tokens で Access Token and Secret を作る。このとき表示される `Access Token` と `Access Secret` をメモする→`TWITTER_ACCESS_TOKEN` と `TWITTER_ACCESS_SECRET` になる
